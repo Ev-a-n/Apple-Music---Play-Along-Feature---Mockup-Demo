@@ -23,7 +23,7 @@ export function NowPlaying({ app, song, duration }: { app: AppState; song: Song;
 
   const t = copy.nowPlaying;
   return (
-    <section className={`screen np ${active ? 'is-active' : ''}`} inert={!active} aria-label={`${song.title}, ${song.artist}`}>
+    <section className={`screen np ${active ? 'is-active' : ''} ${app.loading ? 'shimmer-art' : ''}`} inert={!active} aria-label={`${song.title}, ${song.artist}`}>
       <div className="np-grabber" />
       <AlbumArt song={song} className={`np-art ${app.playing ? 'playing' : ''}`} />
       <div className="np-title">

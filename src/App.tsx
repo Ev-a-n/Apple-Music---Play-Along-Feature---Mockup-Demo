@@ -3,6 +3,7 @@ import { Background } from './components/Background';
 import { Guide } from './components/Guide';
 import { NowPlaying } from './components/NowPlaying';
 import { PlayAlong } from './components/PlayAlong';
+import { Toast } from './components/Toast';
 import { Viewer, useViewer } from './components/Viewer';
 import { copy } from './copy';
 import { StatusIcons } from './icons';
@@ -14,15 +15,28 @@ export function App() {
   const app = useApp();
   const song = songs[app.songIndex];
 
+  useEffect(() => actions.init(), []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === 'r' || e.key === 'R') viewer.rotate();
-      if (e.key === 'f' || e.key === 'F') viewer.toggleFullscreen();
+      const target = e.target as HTMLElement;
+      const onControl = !!target.closest?.('button, [role="slider"]');
+      const key = e.key.toLowerCase();
+      if (key === 'r') viewer.rotate();
+      else if (key === 'f') viewer.toggleFullscreen();
+      else if (key === ' ' && !onControl) actions.togglePlay();
+      else if (key === 'arrowleft' && !target.closest?.('[role="slider"]')) actions.changeSong(-1);
+      else if (key === 'arrowright' && !target.closest?.('[role="slider"]')) actions.changeSong(1);
+      else if (key === 'escape') {
+        if (app.menuOpen) actions.setMenu(false);
+        else actions.closePlayAlong();
+      } else return;
+      if (key === ' ' || key.startsWith('arrow')) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [viewer.rotate, viewer.toggleFullscreen]);
+  }, [viewer.rotate, viewer.toggleFullscreen, app.menuOpen]);
 
   return (
     <Viewer viewer={viewer} onRestart={actions.restartPrototype} guide={<Guide done={app.guide} />}>
@@ -33,6 +47,7 @@ export function App() {
       </div>
       <NowPlaying app={app} song={song} duration={app.duration} />
       <PlayAlong app={app} song={song} orientation={viewer.orientation} />
+      <Toast toast={app.toast} />
     </Viewer>
   );
 }
