@@ -1,9 +1,17 @@
 import { useEffect } from 'react';
+import { Background } from './components/Background';
 import { Guide } from './components/Guide';
+import { NowPlaying } from './components/NowPlaying';
 import { Viewer, useViewer } from './components/Viewer';
+import { copy } from './copy';
+import { StatusIcons } from './icons';
+import { songs } from './songs';
+import { actions, useApp } from './state/app';
 
 export function App() {
   const viewer = useViewer();
+  const app = useApp();
+  const song = songs[app.songIndex];
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -16,8 +24,13 @@ export function App() {
   }, [viewer.rotate, viewer.toggleFullscreen]);
 
   return (
-    <Viewer viewer={viewer} onRestart={() => {}} guide={<Guide done={{}} />}>
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(rgb(55,77,104), rgb(52,48,42))' }} />
+    <Viewer viewer={viewer} onRestart={actions.restartPrototype} guide={<Guide done={app.guide} />}>
+      <Background songIndex={app.songIndex} />
+      <div className="statusbar">
+        <span>{copy.statusTime}</span>
+        <StatusIcons />
+      </div>
+      <NowPlaying app={app} song={song} duration={song.duration} />
     </Viewer>
   );
 }

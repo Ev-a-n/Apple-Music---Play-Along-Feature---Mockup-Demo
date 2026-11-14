@@ -1,1 +1,94 @@
-/* Screen styles are added in the following stages. */
+/* ---------- Shared ---------- */
+.glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 0 0 0.5px var(--glass-border), inset 0 1px 0 var(--glass-highlight);
+}
+.fade-right {
+  white-space: nowrap; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.art { display: block; }
+
+/* Background */
+.bg, .bg-layer, .bg-overlay { position: absolute; inset: 0; }
+.bg { z-index: 0; overflow: hidden; }
+.bg-layer { opacity: 0; visibility: hidden; transition: opacity var(--bg-fade) linear, visibility 0s linear var(--bg-fade); }
+.bg-layer.on { opacity: 1; visibility: visible; transition-delay: 0s; }
+.bg-blob { position: absolute; aspect-ratio: 1; border-radius: 50%; filter: blur(var(--bg-blob-blur)); animation: drift-a var(--bg-drift) ease-in-out infinite alternate; will-change: transform; }
+.bg-layer:not(.on) .bg-blob { animation-play-state: paused; }
+.drift-1 { animation-name: drift-b; }
+.drift-2 { animation-name: drift-c; }
+.drift-3 { animation-name: drift-d; }
+@keyframes drift-a { to { transform: translate(22%, 14%) scale(1.15); } }
+@keyframes drift-b { to { transform: translate(-26%, 18%) scale(0.9); } }
+@keyframes drift-c { to { transform: translate(18%, -20%) scale(1.1); } }
+@keyframes drift-d { to { transform: translate(-16%, -14%) scale(1.2); } }
+.bg-overlay { background: var(--bg-overlay); }
+
+/* Status bar */
+.statusbar { position: absolute; z-index: 30; top: 0; left: 0; right: 0; height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 14px 34px 0 50px; font-size: 17px; font-weight: 600; pointer-events: none; }
+.sideways .statusbar { display: none; }
+
+/* Screens cross-fade with a slight scale */
+.screen { position: absolute; inset: 0; z-index: 10; opacity: 0; visibility: hidden; transform: scale(0.96); transition: opacity var(--t-med) var(--spring), transform var(--t-med) var(--spring), visibility 0s linear var(--t-med); }
+.screen.np { transform: scale(1.04); }
+.screen.is-active { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+
+/* ---------- Now Playing (upright) ---------- */
+.np-grabber { position: absolute; top: 68px; left: 50%; width: 60px; height: 5px; margin-left: -30px; border-radius: 3px; background: var(--w-27); }
+.np-art { position: absolute; left: 72px; top: 140px; width: 258px; height: 258px; border-radius: 10px; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32); transform: scale(0.94); transition: transform var(--t-slow) var(--spring); }
+.np-art.playing { transform: none; }
+.np-title { position: absolute; left: 33px; top: 487px; width: 293px; font-size: 22px; line-height: 27px; }
+.np-song { font-weight: 600; }
+.np-artist { color: var(--w-65); }
+.np-more { position: absolute; left: 338px; top: 497px; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; }
+.np-more::after, .hit::after { content: ''; position: absolute; inset: -6px; }
+.np-progress { position: absolute; left: 32px; right: 32px; top: 571px; }
+.np-bar { height: 6px; border-radius: 3px; background: var(--w-20); overflow: hidden; }
+.np-bar-fill { height: 100%; border-radius: 3px; background: var(--w-90); transform-origin: 0 50%; transform: scaleX(0); }
+.np-times { display: flex; justify-content: space-between; margin-top: 8px; font-size: 13px; font-weight: 600; color: var(--w-45); font-variant-numeric: tabular-nums; }
+.np-transport { position: absolute; left: 0; right: 0; top: 671px; height: 0; display: flex; align-items: center; justify-content: center; gap: 62px; }
+.np-transport button { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; transition: transform 150ms, opacity 150ms; }
+.np-transport button:active, .np-bottom button:active { transform: scale(0.9); opacity: 0.7; }
+.np-volume { position: absolute; left: 32px; right: 32px; top: 752px; height: 22px; display: flex; align-items: center; gap: 10px; color: var(--w-60); }
+.np-volume .np-bar { flex: 1; }
+.np-bottom { position: absolute; left: 0; right: 0; top: 785px; display: flex; justify-content: space-between; padding: 0 65px; color: var(--w-72); }
+.np-bottom button { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; }
+
+/* Now Playing (sideways): art left, controls right */
+.sideways .np-grabber, .sideways .np-bottom { display: none; }
+.sideways .np-art { left: 110px; top: 76px; width: 236px; height: 236px; }
+.sideways .np-title { left: 420px; top: 84px; width: 340px; }
+.sideways .np-more { left: 780px; top: 94px; }
+.sideways .np-progress { left: 420px; right: 62px; top: 170px; }
+.sideways .np-transport { left: 420px; right: 62px; top: 258px; }
+.sideways .np-volume { left: 420px; right: 62px; top: 318px; }
+
+/* ---------- More menu ---------- */
+.menu-layer { position: absolute; inset: 0; z-index: 20; visibility: hidden; transition: visibility 0s linear var(--t-med); }
+.menu-layer.open { visibility: visible; transition-delay: 0s; }
+.menu-scrim { position: absolute; inset: 0; border-radius: var(--phone-radius); background: rgba(0, 0, 0, 0.2); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); opacity: 0; transition: opacity var(--t-med) var(--spring); }
+.open .menu-scrim { opacity: 1; }
+.menu {
+  position: absolute; top: 101px; right: 34px; width: var(--menu-width); padding: 6px 0 8px; border-radius: var(--menu-radius); overflow: hidden;
+  background: var(--menu-tint); -webkit-backdrop-filter: blur(30px) saturate(160%); backdrop-filter: blur(30px) saturate(160%);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.18), 0 20px 50px rgba(0, 0, 0, 0.35);
+  transform-origin: calc(100% - 14px) 412px; transform: scale(0.2); opacity: 0;
+  transition: transform var(--t-med) var(--spring), opacity 200ms linear;
+}
+.open .menu { transform: none; opacity: 1; }
+.sideways .menu { top: 12px; right: 62px; transform-origin: calc(100% - 14px) 98px; transform: scale(0.15); }
+.sideways .open .menu { transform: scale(0.76); transform-origin: 100% 0; }
+.menu hr { border: 0; height: 1px; margin: 0 18px; background: var(--w-08); }
+.menu-top { display: flex; padding: 4px 10px; }
+.menu-top-item { flex: 1; display: grid; justify-items: center; gap: 6px; padding: 12px 0 10px; border-radius: 16px; font-size: 13px; font-weight: 500; color: var(--w-97); }
+.menu-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 54px; padding: 8px 22px; text-align: left; font-size: 17px; color: var(--w-97); }
+.menu-row small { display: block; margin-top: 1px; font-size: 15px; color: var(--w-55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+.menu-row:nth-last-child(-n + 2) { min-height: 44px; }
+.menu-row:active, .menu-top-item:active { background: var(--w-12); }
+.phone .menu button:focus-visible { box-shadow: inset var(--focus); }
+
+.bare .menu-scrim { border-radius: 0; }
