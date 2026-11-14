@@ -1,0 +1,10 @@
+node_modules
+dist
+.DS_Store
+*.local
+
+# Your own music stays on your computer and is never published.
+public/audio/*
+!public/audio/README.md
+.claude
+.stages

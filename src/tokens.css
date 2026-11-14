@@ -1,0 +1,77 @@
+/* Every colour, size and timing a designer may want to adjust lives here. */
+:root {
+  /* Viewer page */
+  --page-bg: #f2f2f7;
+  --page-text: #1c1c1e;
+  --page-muted: #8e8e93;
+  --phone-radius: 55px;
+  --phone-shadow: 0 30px 80px rgba(0, 0, 0, 0.22), 0 6px 18px rgba(0, 0, 0, 0.12);
+  --rotate-ms: 400ms;
+
+  /* Type */
+  --font: -apple-system, 'SF Pro Text', 'SF Pro Display', system-ui, 'Inter', sans-serif;
+
+  /* White at the opacities the design uses */
+  --w-100: #fff;
+  --w-97: rgba(255, 255, 255, 0.97);
+  --w-95: rgba(255, 255, 255, 0.95);
+  --w-90: rgba(255, 255, 255, 0.9);
+  --w-85: rgba(255, 255, 255, 0.85);
+  --w-72: rgba(255, 255, 255, 0.72);
+  --w-65: rgba(255, 255, 255, 0.65);
+  --w-60: rgba(255, 255, 255, 0.6);
+  --w-55: rgba(255, 255, 255, 0.55);
+  --w-50: rgba(255, 255, 255, 0.5);
+  --w-45: rgba(255, 255, 255, 0.45);
+  --w-30: rgba(255, 255, 255, 0.3);
+  --w-27: rgba(255, 255, 255, 0.27);
+  --w-22: rgba(255, 255, 255, 0.22);
+  --w-20: rgba(255, 255, 255, 0.2);
+  --w-12: rgba(255, 255, 255, 0.12);
+  --w-08: rgba(255, 255, 255, 0.08);
+
+  /* Liquid Glass */
+  --glass-bg: rgba(255, 255, 255, 0.12);
+  --glass-blur: blur(20px) saturate(160%);
+  --glass-border: rgba(255, 255, 255, 0.25);
+  --glass-highlight: rgba(255, 255, 255, 0.35);
+  --menu-tint: rgba(42, 40, 41, 0.84);
+  --menu-radius: 30px;
+  --menu-width: 247px;
+
+  /* Background */
+  --bg-overlay: rgba(0, 0, 0, 0.12);
+  --bg-blob-blur: 120px;
+  --bg-drift: 60s;
+  --bg-fade: 400ms;
+
+  /* Motion */
+  --spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --t-fast: 250ms;
+  --t-med: 350ms;
+  --t-slow: 450ms;
+
+  /* Play Along */
+  --pa-margin: 32px;
+  --pa-margin-side: 62px;
+  --lyric-size: 26px;
+  --lyric-line: 32px;
+  --lyric-gap: 12px;
+  --lyric-gap-side: 14px;
+  --lyric-current: var(--w-100);
+  --lyric-in-loop: var(--w-55);
+  --lyric-other: var(--w-30);
+  --track-h: 5px;
+  --track-base: var(--w-20);
+  --track-loop: var(--w-50);
+  --track-played: var(--w-100);
+  --marker-w: 6px;
+  --marker-h: 23px;
+  --loop-off-opacity: 0.35;
+  --slider-h: 7px;
+  --slider-grow: 1.43; /* 7px -> 10px while dragging */
+  --slider-base: var(--w-22);
+  --slider-fill: var(--w-95);
+  --hit: 44px;
+  --focus: 0 0 0 2px rgba(255, 255, 255, 0.95);
+}
