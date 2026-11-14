@@ -4,6 +4,8 @@ import { copy } from '../copy';
 
 export type Orientation = 'upright' | 'sideways';
 const SIZE = { upright: { w: 402, h: 874 }, sideways: { w: 874, h: 402 } };
+/** Page layout numbers (match --page-pad, --guide-w, --guide-gap in tokens.css). */
+const LAYOUT = { pad: 20, guideW: 170, guideGap: 30, caption: 80, guideBelow: 100, maxScale: 1.4, wideFrom: 1000 };
 
 /** A narrow touch screen: show the prototype without a frame. */
 const isRealPhone = () =>
@@ -54,12 +56,14 @@ export function Viewer({ viewer, onRotate, onRestart, guide, children }: Props) 
   const design = SIZE[orientation];
   const phoneRef = useRef<HTMLDivElement>(null);
 
-  // Framed: shrink to fit the window, never grow past 1x.
+  // Framed: as large as the window allows (up to maxScale), leaving room for
+  // the caption under the phone and the checklist beside (or under) it.
   // Bare: fill the screen; the stage may be a little larger than the design size.
-  const wide = win.w >= 1000;
-  const scale = bare
-    ? Math.min(win.w / design.w, win.h / design.h)
-    : Math.min(1, (win.w - 48 - (wide ? 580 : 0)) / design.w, (win.h - (wide ? 190 : 330)) / design.h);
+  const L = LAYOUT;
+  const wide = win.w >= L.wideFrom;
+  const roomW = win.w - L.pad * 2 - (wide ? (L.guideW + L.guideGap) * 2 : 0);
+  const roomH = win.h - L.pad * 2 - L.caption - (wide ? 0 : L.guideBelow);
+  const scale = bare ? Math.min(win.w / design.w, win.h / design.h) : Math.min(L.maxScale, roomW / design.w, roomH / design.h);
   const s = Math.max(0.3, scale);
   const stage = bare ? { w: win.w / s, h: win.h / s } : design;
 
@@ -104,7 +108,6 @@ export function Viewer({ viewer, onRotate, onRestart, guide, children }: Props) 
           {canFullscreen && <button onClick={toggleFullscreen}>{copy.viewer.fullScreen}</button>}
           <button onClick={onRestart}>{copy.viewer.restart}</button>
         </div>
-        <p className="viewer-footer">{copy.viewer.footer}</p>
       </main>
       {guide}
     </div>

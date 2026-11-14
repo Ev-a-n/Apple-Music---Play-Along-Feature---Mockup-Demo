@@ -7,6 +7,10 @@
   --phone-radius: 55px;
   --phone-shadow: 0 30px 80px rgba(0, 0, 0, 0.22), 0 6px 18px rgba(0, 0, 0, 0.12);
   --rotate-ms: 400ms;
+  /* Keep these three in step with LAYOUT in src/components/Viewer.tsx */
+  --page-pad: 20px;
+  --guide-w: 170px;
+  --guide-gap: 30px;
 
   /* Type */
   --font: -apple-system, 'SF Pro Text', 'SF Pro Display', system-ui, 'Inter', sans-serif;

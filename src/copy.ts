@@ -3,21 +3,29 @@ export const copy = {
   viewer: {
     caption: 'Apple Music · Play Along',
     sub: 'concept prototype · tap to explore',
-    rotate: 'Rotate (R)',
-    fullScreen: 'Full screen (F)',
-    restart: 'Restart prototype',
-    footer: 'Student concept. Not affiliated with Apple.',
+    rotate: 'Rotate · R',
+    fullScreen: 'Full screen · F',
+    restart: 'Restart',
   },
   guide: {
     title: 'Try this',
+    // Short labels for the checklist beside the phone.
     items: {
-      menu: 'Tap ••• and choose Play Along',
+      menu: 'Open ••• → Play Along',
+      markers: 'Drag the loop markers',
+      lyric: 'Tap a lyric line',
+      doubleTap: 'Double-tap empty space',
+      swipe: 'Swipe the song title',
+      rotate: 'Press R to rotate',
+    },
+    // Full sentences for the one-time tips sheet on a real phone.
+    tips: {
       markers: 'Drag the two markers to choose a part to repeat',
       lyric: 'Tap a lyric line to start the loop there',
       doubleTap: 'Double-tap empty space to restart the loop',
       swipe: 'Swipe the song title to change songs',
-      rotate: 'Press R to turn the phone sideways',
     },
+    count: (done: number, total: number) => `${done}/${total}`,
     // The last tip makes no sense on a real phone, so the sheet swaps it.
     rotatePhone: 'Turn your phone sideways',
     sheetButton: 'Got it',

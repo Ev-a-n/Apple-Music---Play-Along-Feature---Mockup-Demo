@@ -7,7 +7,10 @@ export const GUIDE_KEYS = Object.keys(copy.guide.items) as GuideKey[];
 export function Guide({ done }: { done: Partial<Record<GuideKey, boolean>> }) {
   return (
     <aside className="guide" aria-label={copy.guide.title}>
-      <h2>{copy.guide.title}</h2>
+      <h2>
+        {copy.guide.title}
+        <span>{copy.guide.count(GUIDE_KEYS.filter((key) => done[key]).length, GUIDE_KEYS.length)}</span>
+      </h2>
       <ul>
         {GUIDE_KEYS.map((key) => (
           <li key={key} className={done[key] ? 'done' : ''}>
