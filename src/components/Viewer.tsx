@@ -43,13 +43,14 @@ export function useViewer() {
 
 interface Props {
   viewer: ReturnType<typeof useViewer>;
+  onRotate: () => void;
   onRestart: () => void;
   guide: ReactNode;
   children: ReactNode;
 }
 
-export function Viewer({ viewer, onRestart, guide, children }: Props) {
-  const { bare, win, orientation, rotate, canFullscreen, toggleFullscreen } = viewer;
+export function Viewer({ viewer, onRotate, onRestart, guide, children }: Props) {
+  const { bare, win, orientation, canFullscreen, toggleFullscreen } = viewer;
   const design = SIZE[orientation];
   const phoneRef = useRef<HTMLDivElement>(null);
 
@@ -99,7 +100,7 @@ export function Viewer({ viewer, onRestart, guide, children }: Props) {
           <span>{copy.viewer.sub}</span>
         </p>
         <div className="viewer-controls">
-          <button onClick={rotate}>{copy.viewer.rotate}</button>
+          <button onClick={onRotate}>{copy.viewer.rotate}</button>
           {canFullscreen && <button onClick={toggleFullscreen}>{copy.viewer.fullScreen}</button>}
           <button onClick={onRestart}>{copy.viewer.restart}</button>
         </div>

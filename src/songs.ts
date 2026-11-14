@@ -90,7 +90,7 @@ export const songs: Song[] = [
     bpm: 96,
     feel: 'strum',
     melodyCentre: 67,
-    audio: { type: 'generated' },
+    audio: { type: 'files' },
     form: [
       { name: 'Intro', chords: ['G', 'C'] },
       { name: 'Verse', chords: ['G', 'Em', 'C', 'D'], lines: ['Gravel road at evening', 'dust behind the wheels', 'Radio is humming low', 'something that I feel'] },
@@ -113,7 +113,7 @@ export const songs: Song[] = [
     bpm: 80,
     feel: 'fingerpick',
     melodyCentre: 66,
-    audio: { type: 'generated' },
+    audio: { type: 'files' },
     form: [
       { name: 'Intro', chords: ['D', 'Bm'] },
       { name: 'Verse', chords: ['D', 'Bm', 'G', 'A'], lines: ['Morning on the harbor', 'boats all in a row', 'You were counting gulls', 'I was moving slow'] },
@@ -136,7 +136,7 @@ export const songs: Song[] = [
     bpm: 108,
     feel: 'shuffle',
     melodyCentre: 69,
-    audio: { type: 'generated' },
+    audio: { type: 'files' },
     form: [
       { name: 'Intro', chords: ['A', 'D'] },
       { name: 'Verse', chords: ['A', 'F#m', 'D', 'E'], lines: ['Racing up the hillside', 'string wound in my hand', 'Wind is getting louder', 'higher than we planned'] },

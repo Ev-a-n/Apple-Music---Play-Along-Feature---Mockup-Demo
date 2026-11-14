@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Background } from './components/Background';
 import { Guide } from './components/Guide';
 import { NowPlaying } from './components/NowPlaying';
 import { PlayAlong } from './components/PlayAlong';
+import { TipsSheet } from './components/TipsSheet';
 import { Toast } from './components/Toast';
 import { Viewer, useViewer } from './components/Viewer';
 import { copy } from './copy';
@@ -17,13 +18,23 @@ export function App() {
 
   useEffect(() => actions.init(), []);
 
+  const rotate = useCallback(() => {
+    viewer.rotate();
+    actions.tick('rotate');
+  }, [viewer.rotate]);
+  // On a real phone, turning the device counts as rotating.
+  const first = useRef(viewer.orientation);
+  useEffect(() => {
+    if (viewer.bare && viewer.orientation !== first.current) actions.tick('rotate');
+  }, [viewer.bare, viewer.orientation]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement;
       const onControl = !!target.closest?.('button, [role="slider"]');
       const key = e.key.toLowerCase();
-      if (key === 'r') viewer.rotate();
+      if (key === 'r') rotate();
       else if (key === 'f') viewer.toggleFullscreen();
       else if (key === ' ' && !onControl) actions.togglePlay();
       else if (key === 'arrowleft' && !target.closest?.('[role="slider"]')) actions.changeSong(-1);
@@ -36,10 +47,10 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [viewer.rotate, viewer.toggleFullscreen, app.menuOpen]);
+  }, [rotate, viewer.toggleFullscreen, app.menuOpen]);
 
   return (
-    <Viewer viewer={viewer} onRestart={actions.restartPrototype} guide={<Guide done={app.guide} />}>
+    <Viewer viewer={viewer} onRotate={rotate} onRestart={actions.restartPrototype} guide={<Guide done={app.guide} />}>
       <Background songIndex={app.songIndex} />
       <div className="statusbar">
         <span>{copy.statusTime}</span>
@@ -47,6 +58,7 @@ export function App() {
       </div>
       <NowPlaying app={app} song={song} duration={app.duration} />
       <PlayAlong app={app} song={song} orientation={viewer.orientation} />
+      <TipsSheet open={viewer.bare && app.screen === 'playAlong' && !app.tipsSeen} />
       <Toast toast={app.toast} />
     </Viewer>
   );

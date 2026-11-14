@@ -80,8 +80,9 @@
   transition: transform var(--t-med) var(--spring), opacity 200ms linear;
 }
 .open .menu { transform: none; opacity: 1; }
-.sideways .menu { top: 12px; right: 62px; transform-origin: calc(100% - 14px) 98px; transform: scale(0.15); }
-.sideways .open .menu { transform: scale(0.76); transform-origin: 100% 0; }
+/* Sideways there is less height, so the whole menu is drawn a little smaller. */
+.sideways .menu { top: 12px; right: 62px; transform-origin: 100% 0; transform: scale(0.15); }
+.sideways .open .menu { transform: scale(0.76); }
 .menu hr { border: 0; height: 1px; margin: 0 18px; background: var(--w-08); }
 .menu-top { display: flex; padding: 4px 10px; }
 .menu-top-item { flex: 1; display: grid; justify-items: center; gap: 6px; padding: 12px 0 10px; border-radius: 16px; font-size: 13px; font-weight: 500; color: var(--w-97); }
@@ -219,10 +220,26 @@
 /* ---------- Swipeable header ---------- */
 .song-track { position: relative; width: 100%; height: 100%; will-change: transform; }
 .song-track .song-head { position: absolute; top: 0; left: 0; width: 100%; }
-.song-head-prev { transform: translateX(-100%); }
-.song-head-next { transform: translateX(100%); }
+.song-track { --head-gap: 24px; }
+.song-head-prev { transform: translateX(calc(-100% - var(--head-gap))); }
+.song-head-next { transform: translateX(calc(100% + var(--head-gap))); }
 .pa-header:active { cursor: grabbing; }
 
 /* ---------- Double-tap restart badge ---------- */
 .restart-badge { position: absolute; z-index: 6; left: 50%; top: 50%; width: 68px; height: 68px; margin: -34px 0 0 -34px; border-radius: 50%; display: grid; place-items: center; pointer-events: none; background: rgba(255, 255, 255, 0.2); animation: badge 500ms ease-out both; }
 @keyframes badge { 0% { opacity: 0; transform: scale(0.7); } 25% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.06); } }
+
+/* ---------- First-time tips (real phones only) ---------- */
+.tips-layer { position: absolute; inset: 0; z-index: 32; visibility: hidden; transition: visibility 0s linear var(--t-slow); }
+.tips-layer.open { visibility: visible; transition-delay: 0s; }
+.tips-scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.35); opacity: 0; transition: opacity var(--t-med) ease; }
+.tips { position: absolute; left: 12px; right: 12px; bottom: 12px; padding: 20px 22px 18px; border-radius: 30px; background: var(--menu-tint); -webkit-backdrop-filter: blur(30px) saturate(160%); backdrop-filter: blur(30px) saturate(160%); box-shadow: inset 0 0 0 0.5px var(--glass-border); transform: translateY(110%); transition: transform var(--t-slow) var(--spring); }
+.open .tips-scrim { opacity: 1; }
+.open .tips { transform: none; }
+.tips h2 { margin: 0 0 10px; font-size: 20px; font-weight: 700; }
+.tips ul { margin: 0 0 16px; padding: 0 0 0 20px; display: grid; gap: 7px; font-size: 15px; line-height: 1.3; color: var(--w-85); }
+.tips button { width: 100%; height: 46px; border-radius: 23px; font-size: 17px; font-weight: 600; }
+.phone .tips button:focus-visible { border-radius: 23px; }
+.sideways .tips { left: 50%; right: auto; width: 520px; margin-left: -260px; padding: 14px 22px; }
+.sideways .tips ul { grid-template-columns: 1fr 1fr; column-gap: 34px; font-size: 14px; margin-bottom: 12px; }
+.sideways .tips button { height: 40px; }

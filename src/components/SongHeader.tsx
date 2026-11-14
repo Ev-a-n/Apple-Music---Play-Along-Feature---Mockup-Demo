@@ -9,6 +9,7 @@ import { AlbumArt } from './AlbumArt';
 const COMMIT_AT = 0.3; // fraction of the width
 const FLICK = 0.5; // px per ms
 const RUBBER = 0.3; // resistance past the first and last song
+const GAP = 24; // space between neighbouring headers (matches --head-gap in screens.css)
 
 function Head({ song, place }: { song?: Song; place: 'prev' | 'current' | 'next' }) {
   if (!song) return null;
@@ -41,7 +42,7 @@ export function SongHeader({ songIndex }: { songIndex: number }) {
   useLayoutEffect(() => {
     const el = track.current;
     if (!el || previous.current === songIndex) return;
-    const width = el.offsetWidth;
+    const width = el.offsetWidth + GAP;
     const from = handoff.current ?? (songIndex > previous.current ? width : -width);
     previous.current = songIndex;
     handoff.current = null;
@@ -53,7 +54,7 @@ export function SongHeader({ songIndex }: { songIndex: number }) {
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     capture(e);
-    drag.current = { x0: e.clientX, t0: performance.now(), scale: el.getBoundingClientRect().width / el.offsetWidth, width: el.offsetWidth, dx: 0 };
+    drag.current = { x0: e.clientX, t0: performance.now(), scale: el.getBoundingClientRect().width / el.offsetWidth, width: el.offsetWidth + GAP, dx: 0 };
   };
   const onPointerMove = (e: PointerEvent) => {
     const d = drag.current;
