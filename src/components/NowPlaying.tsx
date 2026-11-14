@@ -30,7 +30,7 @@ export function NowPlaying({ app, song, duration }: { app: AppState; song: Song;
         <div className="fade-right np-song">{song.title}</div>
         <div className="fade-right np-artist">{song.artist}</div>
       </div>
-      <button className="glass np-more" aria-label={t.more} aria-haspopup="menu" aria-expanded={app.menuOpen} onClick={() => actions.setMenu(true)}>
+      <button className={`glass np-more ${app.moreHint && !app.loading ? 'hint' : ''}`} aria-label={t.more} aria-haspopup="menu" aria-expanded={app.menuOpen} onClick={() => actions.setMenu(true)}>
         <Icon name="ellipsis" size={18} />
       </button>
       <div className="np-progress" role="progressbar" aria-label={t.progress} aria-valuemin={0} aria-valuemax={Math.round(duration)} aria-valuenow={second} aria-valuetext={formatTime(second)}>

@@ -19,11 +19,14 @@ interface Events {
   time: number;
   playing: boolean;
   ended: undefined;
+  /** 1–4 while the count-in clicks, 0 when it is over. */
+  count: number;
 }
 
 const DRIFT_LIMIT = 0.04; // seconds the stems may drift apart before correction
 const DRIFT_CHECK = 250; // ms between drift checks
 const DIP = 0.015; // seconds of gain dip around a jump, to avoid a click
+const COUNT_BEATS = 4; // one bar of clicks before the loop starts again
 const LOOK_AHEAD = 0.032; // seconds before the loop end at which the jump starts
 
 type PitchElement = HTMLAudioElement & { webkitPreservesPitch?: boolean; mozPreservesPitch?: boolean };
@@ -44,7 +47,13 @@ export class Engine {
   private pendingJump: number | null = null;
   private rateSync = 0;
   private loads = 0;
-  private listeners: { [K in keyof Events]: Set<(value: Events[K]) => void> } = { time: new Set(), playing: new Set(), ended: new Set() };
+  private countIn = { on: false, bpm: 120 };
+  private counting = false;
+  private countTimers: number[] = [];
+  private countClicks: OscillatorNode[] = [];
+  /** True once the elements have played from a tap; only then may a timer start them. */
+  private primed = false;
+  private listeners: { [K in keyof Events]: Set<(value: Events[K]) => void> } = { time: new Set(), playing: new Set(), ended: new Set(), count: new Set() };
 
   duration = 0;
   playing = false;
@@ -108,14 +117,18 @@ export class Engine {
     if (this.time >= this.duration - 0.05) this.setTime(this.loop.on ? this.loop.start : 0);
     if (this.hasVocals) this.vocals.currentTime = this.backing.currentTime;
     this.applyRate();
-    const started = [this.backing.play()];
-    if (this.hasVocals) started.push(this.vocals.play());
     this.playing = true;
     this.emit('playing', true);
     cancelAnimationFrame(this.frame);
     this.frame = requestAnimationFrame(this.tick);
+    // Starting from the top of the loop: count one bar in first.
+    if (this.primed && this.countIn.on && this.loop.on && Math.abs(this.time - this.loop.start) < 0.06) {
+      this.startCount();
+      return;
+    }
     try {
-      await Promise.all(started);
+      await this.startElements();
+      this.primed = true;
     } catch (error) {
       // A pause() that interrupts play() is normal; anything else is a real failure.
       if ((error as DOMException).name !== 'AbortError') {
@@ -129,16 +142,24 @@ export class Engine {
     this.backing.pause();
     this.vocals.pause();
     cancelAnimationFrame(this.frame);
+    this.cancelCount();
     if (!this.playing) return;
     this.playing = false;
     this.emit('playing', false);
     this.emit('time', this.time);
   }
 
-  seek(time: number) {
+  /** With `countIn`, a playing song stops, clicks one bar, then carries on from there. */
+  seek(time: number, countIn = false) {
     const to = Math.max(0, Math.min(time, Math.max(0, this.duration - 0.05)));
-    if (this.playing) this.jump(to);
+    if (this.playing) this.jump(to, countIn && this.countIn.on);
     else this.setTime(to);
+  }
+
+  /** Click one bar at the song tempo before the loop starts again. */
+  setCountIn(on: boolean, bpm: number) {
+    this.countIn = { on, bpm };
+    if (!on) this.finishCount();
   }
 
   /** 0.5–1. Pitch is preserved. */
@@ -216,6 +237,60 @@ export class Engine {
     if (this.ctx && this.vocalsGain) this.vocalsGain.gain.setTargetAtTime(this.vocalsLevel, this.ctx.currentTime, 0.015);
   }
 
+  private startElements() {
+    const started = [this.backing.play()];
+    if (this.hasVocals) started.push(this.vocals.play());
+    return Promise.all(started);
+  }
+
+  /** Four clicks (the first one higher), then the music starts. */
+  private startCount() {
+    const ctx = this.ctx;
+    this.cancelCount();
+    if (!ctx) return void this.startElements();
+    this.counting = true;
+    const beat = 60 / this.countIn.bpm / this.rate;
+    const out = ctx.createGain();
+    out.gain.value = 0.22;
+    out.connect(ctx.destination);
+    for (let i = 0; i < COUNT_BEATS; i++) {
+      const at = ctx.currentTime + 0.04 + i * beat;
+      const click = ctx.createOscillator();
+      const env = ctx.createGain();
+      click.frequency.value = i === 0 ? 1760 : 1320;
+      env.gain.setValueAtTime(0, at);
+      env.gain.linearRampToValueAtTime(1, at + 0.002);
+      env.gain.exponentialRampToValueAtTime(0.001, at + 0.06);
+      click.connect(env).connect(out);
+      click.start(at);
+      click.stop(at + 0.08);
+      this.countClicks.push(click);
+      this.countTimers.push(window.setTimeout(() => this.emit('count', i + 1), 40 + i * beat * 1000));
+    }
+    this.countTimers.push(window.setTimeout(() => this.finishCount(), 40 + COUNT_BEATS * beat * 1000));
+  }
+  /** The count is over (or switched off mid-count): start the music. */
+  private finishCount() {
+    if (!this.counting) return;
+    this.cancelCount();
+    if (this.playing) this.startElements().catch(() => this.pause());
+  }
+  private cancelCount() {
+    this.countTimers.forEach(clearTimeout);
+    this.countTimers = [];
+    for (const click of this.countClicks) {
+      try {
+        click.stop();
+      } catch {
+        /* already finished */
+      }
+    }
+    this.countClicks = [];
+    if (!this.counting) return;
+    this.counting = false;
+    this.emit('count', 0);
+  }
+
   private setTime(time: number) {
     this.backing.currentTime = time;
     if (this.hasVocals) this.vocals.currentTime = time;
@@ -223,8 +298,9 @@ export class Engine {
   }
 
   /** Move both stems together, with a very short gain dip so there is no click. */
-  private jump(to: number) {
+  private jump(to: number, countIn = false) {
     this.pendingJump = to;
+    this.cancelCount();
     if (this.jumping) return;
     this.jumping = true;
     const { ctx, master } = this;
@@ -248,6 +324,15 @@ export class Engine {
       };
       const fallback = window.setTimeout(restore, 120);
       this.backing.addEventListener('seeked', restore);
+      if (countIn && this.playing) {
+        // Hold the music at the new position while the bar is counted in.
+        this.backing.pause();
+        this.vocals.pause();
+        this.startCount();
+      } else if (this.playing && this.backing.paused) {
+        // A count was interrupted by this jump: get the music going again.
+        this.startElements().catch(() => this.pause());
+      }
       this.setTime(target);
     }, DIP * 1000);
   }
@@ -267,12 +352,12 @@ export class Engine {
   private tick = (now: number) => {
     if (!this.playing) return;
     this.frame = requestAnimationFrame(this.tick);
-    if (this.jumping) return;
+    if (this.jumping || this.counting) return;
     const t = this.backing.currentTime;
     this.emit('time', t);
 
     if (this.loop.on && t >= this.loop.end - LOOK_AHEAD * this.rate) {
-      this.jump(this.loop.start);
+      this.jump(this.loop.start, this.countIn.on);
       return;
     }
     // Stems of different lengths: stop at the shorter one.

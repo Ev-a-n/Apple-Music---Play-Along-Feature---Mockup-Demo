@@ -12,15 +12,16 @@ export interface SongSettings {
 interface Saved {
   songs: Record<string, SongSettings>;
   tipsSeen: boolean;
+  countIn: boolean;
 }
 
 const KEY = 'play-along:v1';
-const empty = (): Saved => ({ songs: {}, tipsSeen: false });
+const empty = (): Saved => ({ songs: {}, tipsSeen: false, countIn: false });
 
 function read(): Saved {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Saved> | null;
-    return { songs: saved?.songs ?? {}, tipsSeen: !!saved?.tipsSeen };
+    return { songs: saved?.songs ?? {}, tipsSeen: !!saved?.tipsSeen, countIn: !!saved?.countIn };
   } catch {
     return empty();
   }
@@ -43,6 +44,11 @@ export const store = {
   tipsSeen: () => memory.tipsSeen,
   setTipsSeen() {
     memory.tipsSeen = true;
+    write();
+  },
+  countIn: () => memory.countIn,
+  setCountIn(on: boolean) {
+    memory.countIn = on;
     write();
   },
   clear() {

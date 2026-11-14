@@ -42,7 +42,8 @@ export function PlayAlong({ app, song, orientation }: Props) {
       actions.restartLoop();
       actions.tick('doubleTap');
       haptic();
-      setBadge((n) => n + 1);
+      // With count-in on, the count itself is the feedback.
+      if (!(app.countIn && app.playing && loop.on)) setBadge((n) => n + 1);
     } else lastTap.current = { at: now, x: e.clientX, y: e.clientY };
   };
 
@@ -96,6 +97,9 @@ export function PlayAlong({ app, song, orientation }: Props) {
       <button className="pa-airplay" data-nodtap aria-label={t.airplay} aria-haspopup="menu" aria-expanded={airplayOpen} onClick={() => setAirplayOpen(true)}>
         <Icon name="airplay" size={22} />
       </button>
+      <button className={`pa-countin ${app.countIn ? 'on' : ''}`} data-nodtap aria-label={t.countIn} aria-pressed={app.countIn} onClick={actions.toggleCountIn}>
+        <Icon name="metronome" size={22} />
+      </button>
       <div className={`airplay-layer ${airplayOpen ? 'open' : ''}`} inert={!airplayOpen} data-nodtap>
         <div className="airplay-scrim" onPointerDown={() => setAirplayOpen(false)} />
         <div className="airplay-menu" role="menu" aria-label={t.airplay}>
@@ -113,6 +117,11 @@ export function PlayAlong({ app, song, orientation }: Props) {
         <Slider label={t.speed} value={settings.speed} min={50} max={100} onChange={actions.setSpeed} snaps={[50, 75, 100]} resetTo={100} />
       </div>
       <div className="home-indicator" />
+      {app.count > 0 && (
+        <div key={`count-${app.count}`} className="glass restart-badge count-badge" aria-hidden="true">
+          {app.count}
+        </div>
+      )}
       {badge > 0 && (
         <div key={badge} className="glass restart-badge">
           <Icon name="toStart" size={30} />

@@ -20,6 +20,12 @@ export interface AppState {
   airplay: number;
   toast: { id: number; text: string } | null;
   tipsSeen: boolean;
+  /** Click one bar before the loop starts again. */
+  countIn: boolean;
+  /** The beat being counted (1–4), or 0. */
+  count: number;
+  /** Pulse the More button until the menu has been opened once. */
+  moreHint: boolean;
   guide: Partial<Record<GuideKey, boolean>>;
 }
 
@@ -32,7 +38,7 @@ const defaults = (song: Song): SongSettings => ({ loopStart: song.defaultLoop.st
 const settingsFor = (song: Song) => store.get(song.id) ?? defaults(song);
 const initial = (): AppState => ({
   screen: 'nowPlaying', songIndex: 0, menuOpen: false, playing: false, loading: true, vocalsAvailable: true,
-  duration: songs[0].duration, settings: settingsFor(songs[0]), airplay: 0, toast: null, tipsSeen: store.tipsSeen(), guide: {},
+  duration: songs[0].duration, settings: settingsFor(songs[0]), airplay: 0, toast: null, tipsSeen: store.tipsSeen(), countIn: store.countIn(), count: 0, moreHint: true, guide: {},
 });
 
 let state = initial();
@@ -46,6 +52,7 @@ const song = () => songs[state.songIndex];
 const engine = new Engine();
 engine.on('time', time.set);
 engine.on('playing', (playing) => set({ playing }));
+engine.on('count', (count) => set({ count }));
 
 let toastTimer = 0;
 let toastId = 0;
@@ -62,6 +69,7 @@ function applyToEngine() {
   engine.setRate(practising ? s.speed / 100 : 1);
   engine.setVocals(practising && state.vocalsAvailable ? s.vocals / 100 : 1);
   engine.setLoop({ start: s.loopStart, end: s.loopEnd, on: practising && s.loopOn });
+  engine.setCountIn(practising && s.loopOn && state.countIn, song().bpm);
 }
 function setSettings(patch: Partial<SongSettings>) {
   const settings = { ...state.settings, ...patch };
@@ -118,7 +126,7 @@ export const actions = {
     started = true;
     void loadSong(0, false);
   },
-  setMenu: (menuOpen: boolean) => set({ menuOpen }),
+  setMenu: (menuOpen: boolean) => set(menuOpen ? { menuOpen, moreHint: false } : { menuOpen }),
 
   openPlayAlong() {
     set({ screen: 'playAlong', menuOpen: false });
@@ -173,13 +181,13 @@ export const actions = {
       const loopEnd = keep ? state.settings.loopEnd : Math.min(state.duration, Math.max(section?.end ?? 0, line.end, line.t + MIN_LOOP));
       setSettings({ loopStart: line.t, loopEnd, loopOn: true });
     }
-    engine.seek(state.settings.loopStart);
+    engine.seek(state.settings.loopStart, true);
     actions.tick('lyric');
   },
 
   /** Back to the loop start, or to the start of the song when the loop is off. */
   restartLoop() {
-    if (!state.loading) engine.seek(loopStartOrZero());
+    if (!state.loading) engine.seek(loopStartOrZero(), true);
   },
 
   /** Move the loop to the next section of the song, wrapping at the end. */
@@ -192,7 +200,15 @@ export const actions = {
     });
     const next = sections[(current + 1) % sections.length];
     setSettings({ loopStart: next.start, loopEnd: Math.min(next.end, state.duration), loopOn: true });
-    engine.seek(next.start);
+    engine.seek(next.start, true);
+  },
+
+  toggleCountIn() {
+    const countIn = !state.countIn;
+    store.setCountIn(countIn);
+    set({ countIn });
+    applyToEngine();
+    toast(countIn ? copy.toasts.countInOn : copy.toasts.countInOff);
   },
 
   setAirplay: (airplay: number) => set({ airplay }),

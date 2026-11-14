@@ -65,6 +65,7 @@ export const copy = {
     pause: 'Pause',
     nextSection: 'Next section',
     airplay: 'AirPlay',
+    countIn: 'Count-in',
     vocals: 'Vocals',
     speed: 'Speed',
     vocalsUnavailable: 'Not available for this song',
@@ -81,6 +82,8 @@ export const copy = {
   airplayDevices: ['iPhone', 'AirPods Pro', 'Living Room'],
   toasts: {
     silent: 'No sound? Turn off silent mode.',
+    countInOn: 'Count-in on · one bar before each loop',
+    countInOff: 'Count-in off',
     loadFailed: "Couldn't load this song",
   },
 } as const;

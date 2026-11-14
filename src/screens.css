@@ -243,3 +243,15 @@
 .sideways .tips { left: 50%; right: auto; width: 520px; margin-left: -260px; padding: 14px 22px; }
 .sideways .tips ul { grid-template-columns: 1fr 1fr; column-gap: 34px; font-size: 14px; margin-bottom: 12px; }
 .sideways .tips button { height: 40px; }
+
+/* ---------- Count-in ---------- */
+.pa-countin { position: absolute; right: calc(var(--pa-margin) - 11px); bottom: 177px; width: var(--hit); height: var(--hit); display: grid; place-items: center; border-radius: 50%; opacity: 0.4; transition: opacity var(--t-fast), transform 150ms; }
+.pa-countin.on { opacity: 1; }
+.pa-countin:active { transform: scale(0.88); }
+.sideways .pa-countin { right: auto; left: calc(var(--pa-margin-side) + 39px); bottom: 89px; }
+.count-badge { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; animation: count-beat 420ms ease-out both; }
+@keyframes count-beat { 0% { opacity: 0; transform: scale(0.8); } 18% { opacity: 1; transform: scale(1.06); } 60% { opacity: 1; transform: scale(1); } 100% { opacity: 0.55; transform: scale(1); } }
+
+/* ---------- "Start here" pulse on the More button ---------- */
+.np-more.hint::before { content: ''; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.7); opacity: 0; animation: more-pulse 2.6s ease-out 1.2s infinite; pointer-events: none; }
+@keyframes more-pulse { 0% { opacity: 0.7; transform: scale(1); } 55%, 100% { opacity: 0; transform: scale(1.9); } }
