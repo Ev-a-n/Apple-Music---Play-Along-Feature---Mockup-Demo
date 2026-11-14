@@ -1,12 +1,12 @@
 // The whole song as a thin bar, with the loop between two draggable markers.
 import { useEffect, useRef, type KeyboardEvent, type PointerEvent } from 'react';
 import { copy } from '../copy';
-import { haptic } from '../haptic';
+import { capture, haptic } from '../haptic';
 import { formatTime, type Song } from '../songs';
 import { time } from '../state/time';
 
 export const MIN_LOOP = 2; // seconds
-const SNAP_PX = 6; // how close (on screen) a marker must be to a lyric line to snap to it
+const SNAP_PX = 3; // how close (on screen) a marker must be to a lyric line to snap to it
 
 interface Props {
   song: Song;
@@ -50,7 +50,7 @@ export function Timeline({ song, duration, loop, loading, onChange, onDragged }:
   };
 
   const onPointerDown = (which: 'start' | 'end') => (e: PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
+    capture(e);
     drag.current = { which, snapped: null };
   };
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {

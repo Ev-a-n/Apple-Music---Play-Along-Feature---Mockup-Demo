@@ -6,3 +6,12 @@ export function haptic() {
     /* not supported */
   }
 }
+
+/** Keep receiving a pointer's events even when it leaves the element. */
+export function capture(e: { currentTarget: Element; pointerId: number }) {
+  try {
+    e.currentTarget.setPointerCapture(e.pointerId);
+  } catch {
+    /* the pointer is already gone */
+  }
+}

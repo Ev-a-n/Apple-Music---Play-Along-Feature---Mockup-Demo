@@ -1,6 +1,6 @@
 // One plain slider style: a thin bar with a white fill and no knob.
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
-import { haptic } from '../haptic';
+import { capture, haptic } from '../haptic';
 
 interface Props {
   label: string;
@@ -47,7 +47,7 @@ export function Slider({ label, value, min, max, onChange, snaps = [], snapWithi
       return;
     }
     lastDown.current = now;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    capture(e);
     setDragging(true);
     lastSnap.current = snaps.includes(value) ? value : null;
     fromPointer(e);
