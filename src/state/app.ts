@@ -246,22 +246,43 @@ export function useApp(): AppState {
 if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__playAlong = { engine, actions, state: () => state };
 
 // Lyric timing helper (development only). On Now Playing, press play and tap
-// T as each lyric line starts. After the last line the start times are copied
-// to the clipboard, ready to paste into src/songs.ts as `times: [...]`.
+// T each time the singer starts a new line. You decide how many lines there
+// are: press Enter when done and the start times are copied to the clipboard,
+// ready to paste into src/songs.ts as `times: [...]`.
+//   Backspace  undo the last tap
+//   Enter      finish and copy
+// Taps start over by themselves when you change song or the song jumps back
+// (press play again from the start to have another go).
 if (import.meta.env.DEV) {
   let stamps: number[] = [];
   let stampedSong = '';
+  let lastTime = 0;
+  time.subscribe(() => {
+    const t = time.get();
+    if (stamps.length && t < lastTime - 0.5) {
+      stamps = [];
+      toast('Taps cleared. Tap T on each new line');
+    }
+    lastTime = t;
+  });
   window.addEventListener('keydown', (e) => {
-    if (e.key.toLowerCase() !== 't' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const key = e.key.toLowerCase();
     if (stampedSong !== song().id) stamps = [];
     stampedSong = song().id;
-    const total = song().lyrics.length;
-    stamps.push(Math.round(time.get() * 100) / 100);
-    if (stamps.length < total) return toast(`Line ${stamps.length} of ${total} at ${stamps[stamps.length - 1]}s`);
-    const result = `times: [${stamps.join(', ')}],`;
-    stamps = [];
-    console.info(`${song().title}: ${result}`);
-    void navigator.clipboard?.writeText(result).catch(() => {});
-    toast('Timings copied. Paste into src/songs.ts');
+    if (key === 't') {
+      stamps.push(Math.round(time.get() * 100) / 100);
+      toast(`Line ${stamps.length} at ${stamps[stamps.length - 1]}s · Backspace undo · Enter finish`);
+    } else if (key === 'backspace' && stamps.length) {
+      stamps.pop();
+      toast(stamps.length ? `Undone. ${stamps.length} so far` : 'Undone. No lines yet');
+    } else if (key === 'enter' && stamps.length) {
+      e.preventDefault();
+      const result = `times: [${stamps.join(', ')}],`;
+      console.info(`${song().title} (${stamps.length} lines): ${result}`);
+      void navigator.clipboard?.writeText(result).catch(() => {});
+      toast(`${stamps.length} times copied. Paste them into the chat`);
+      stamps = [];
+    }
   });
 }

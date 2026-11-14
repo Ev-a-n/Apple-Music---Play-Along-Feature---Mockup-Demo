@@ -86,9 +86,10 @@ The lyric lines in `src/songs.ts` are placeholders. To show the words sung in
 a clip:
 
 1. Replace that song's `lines` with the lines heard in the clip, in order.
-2. Run `npm run dev`, stay on Now Playing, press play, and tap **T** as each
-   line starts. After the last line the start times are copied to your
-   clipboard (and printed in the browser console).
+2. Run `npm run dev`, stay on Now Playing, press play, and tap **T** each
+   time a new line starts. **Backspace** undoes a tap, **Enter** finishes and
+   copies the times to your clipboard. Jumping back in the song clears the
+   taps so you can try again.
 3. Paste them into the song as `times: [...]`, next to `lines`.
 
 The T key only exists while developing; it is not on the published site.
