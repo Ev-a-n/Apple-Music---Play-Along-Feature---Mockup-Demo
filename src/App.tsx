@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Background } from './components/Background';
 import { Guide } from './components/Guide';
 import { NowPlaying } from './components/NowPlaying';
+import { PlayAlong } from './components/PlayAlong';
 import { Viewer, useViewer } from './components/Viewer';
 import { copy } from './copy';
 import { StatusIcons } from './icons';
@@ -30,7 +31,8 @@ export function App() {
         <span>{copy.statusTime}</span>
         <StatusIcons />
       </div>
-      <NowPlaying app={app} song={song} duration={song.duration} />
+      <NowPlaying app={app} song={song} duration={app.duration} />
+      <PlayAlong app={app} song={song} orientation={viewer.orientation} />
     </Viewer>
   );
 }

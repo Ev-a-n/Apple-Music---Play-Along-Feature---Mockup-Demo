@@ -92,3 +92,118 @@
 .phone .menu button:focus-visible { box-shadow: inset var(--focus); }
 
 .bare .menu-scrim { border-radius: 0; }
+
+/* ---------- Play Along (upright, 402 x 874) ---------- */
+.pa-label { position: absolute; top: 66px; left: 0; right: 0; height: 36px; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 13px; font-weight: 600; color: var(--w-72); pointer-events: none; }
+.pa-close { position: absolute; top: 66px; right: var(--pa-margin); width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; }
+.phone .pa-close:focus-visible, .phone .np-more:focus-visible { border-radius: 50%; }
+.pa-header { position: absolute; left: var(--pa-margin); right: var(--pa-margin); top: 122px; height: 56px; overflow: hidden; touch-action: none; cursor: grab; }
+.song-head { display: flex; align-items: center; gap: 12px; height: 100%; }
+.song-head .art { flex: none; width: 56px; height: 56px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
+.song-head-text { min-width: 0; flex: 1; }
+.song-head-title { font-size: 17px; font-weight: 600; line-height: 22px; }
+.song-head-artist { font-size: 15px; line-height: 20px; color: var(--w-60); }
+.pa-dots { position: absolute; top: 192px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; }
+.pa-dots i { width: 6px; height: 6px; border-radius: 50%; background: #fff; opacity: 0.3; transition: opacity var(--t-fast) ease; }
+.pa-dots i.on { opacity: 1; }
+
+/* Lyrics */
+.pa-lyrics { position: absolute; left: var(--pa-margin); right: var(--pa-margin); top: 198px; bottom: 315px; display: flex; align-items: center; --lines: 5; --gap: var(--lyric-gap); --pitch: calc(var(--lyric-line) + var(--gap)); }
+.lyrics-view {
+  position: relative; width: 100%; height: calc(var(--lines) * var(--pitch) - var(--gap) + 16px); padding: 8px 0; overflow: hidden;
+  -webkit-mask-image: linear-gradient(#0000, #000 10px, #000 calc(100% - 10px), #0000); mask-image: linear-gradient(#0000, #000 10px, #000 calc(100% - 10px), #0000);
+}
+.lyrics-list { position: relative; transform: translateY(calc((1 - var(--i)) * var(--pitch))); transition: transform var(--t-slow) var(--spring); }
+.lyric { display: flex; align-items: center; width: 100%; height: var(--lyric-line); margin-bottom: var(--gap); padding-left: 14px; text-align: left; font-size: var(--lyric-size); font-weight: 700; line-height: var(--lyric-line); letter-spacing: -0.012em; white-space: nowrap; color: #fff; opacity: 0.3; transition: opacity 300ms ease; }
+.lyric.in-loop { opacity: 0.55; }
+.lyric.current { opacity: 1; }
+.phone .lyric:focus-visible { box-shadow: inset var(--focus); }
+.lyric-dots { gap: 7px; }
+.lyric-dots i { width: 9px; height: 9px; border-radius: 50%; background: #fff; }
+.lyric-dots.current i { animation: dot-pulse 1.4s ease-in-out infinite; }
+.lyric-dots.current i:nth-child(2) { animation-delay: 0.2s; }
+.lyric-dots.current i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dot-pulse { 0%, 100% { opacity: 0.35; transform: scale(0.85); } 40% { opacity: 1; transform: scale(1.1); } }
+.lyrics-loopbar { position: absolute; left: 0; width: 3px; border-radius: 2px; background: var(--w-85); transition: opacity var(--t-fast); }
+.lyrics-loopbar.off { opacity: var(--loop-off-opacity); }
+
+/* Timeline */
+.pa-timeline { position: absolute; left: var(--pa-margin); right: var(--pa-margin); bottom: 290.5px; height: var(--hit); }
+.tl-bar { position: absolute; left: 0; right: 0; top: 19.5px; height: var(--track-h); border-radius: 3px; background: var(--track-base); overflow: hidden; }
+.tl-loop, .tl-played { position: absolute; inset: 0; transform-origin: 0 50%; }
+.tl-loop { background: var(--track-loop); transition: opacity var(--t-fast); }
+.tl-played { background: var(--track-played); transform: scaleX(0); }
+.tl-rail { position: absolute; inset: 0; pointer-events: none; }
+.tl-marker { position: absolute; top: 0; width: var(--hit); height: var(--hit); pointer-events: auto; cursor: ew-resize; touch-action: none; }
+.tl-start { left: -32px; }
+.tl-end { left: -12px; }
+.tl-marker::after { content: ''; position: absolute; top: 10.5px; width: var(--marker-w); height: var(--marker-h); border-radius: 2px; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); transition: opacity var(--t-fast), transform 150ms; }
+.tl-start::after { left: 29px; }
+.tl-end::after { left: 9px; }
+.tl-marker:active::after { transform: scaleY(1.15); }
+.loop-off .tl-loop, .loop-off .tl-marker::after { opacity: var(--loop-off-opacity); }
+
+/* Time row and loop pill */
+.pa-timerow { position: absolute; left: var(--pa-margin); right: var(--pa-margin); bottom: 273px; height: 22px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--w-65); font-variant-numeric: tabular-nums; }
+.loop-pill { position: absolute; left: 50%; top: 0; margin-left: -54px; width: 108px; height: 22px; border-radius: 11px; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 13px; font-weight: 600; color: #fff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.loop-pill::after { content: ''; position: absolute; inset: -11px -6px; }
+.phone .loop-pill:focus-visible { border-radius: 11px; }
+
+/* Controls */
+.pa-controls { position: absolute; left: 0; right: 0; bottom: 199px; height: 0; display: flex; align-items: center; justify-content: center; gap: 40px; }
+.pa-controls button, .pa-airplay { width: var(--hit); height: var(--hit); display: grid; place-items: center; border-radius: 50%; transition: transform 150ms, opacity 150ms; }
+.pa-controls button:active, .pa-airplay:active { transform: scale(0.88); opacity: 0.7; }
+.pa-airplay { position: absolute; left: calc(var(--pa-margin) - 11px); bottom: 177px; }
+
+/* AirPlay menu */
+.airplay-layer { position: absolute; inset: 0; z-index: 5; visibility: hidden; transition: visibility 0s linear var(--t-fast); }
+.airplay-layer.open { visibility: visible; transition-delay: 0s; }
+.airplay-scrim { position: absolute; inset: 0; }
+.airplay-menu { position: absolute; left: var(--pa-margin); bottom: 228px; width: 196px; padding: 5px 0; border-radius: 18px; overflow: hidden; background: var(--menu-tint); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: inset 0 0 0 0.5px var(--glass-border), 0 14px 36px rgba(0, 0, 0, 0.3); transform-origin: 10px 100%; transform: scale(0.3); opacity: 0; transition: transform var(--t-med) var(--spring), opacity 180ms linear; }
+.open .airplay-menu { transform: none; opacity: 1; }
+.airplay-menu button { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 44px; padding: 0 16px; font-size: 16px; color: var(--w-97); }
+.airplay-menu button + button { box-shadow: inset 0 1px 0 var(--w-08); }
+.airplay-menu button:active { background: var(--w-12); }
+
+/* Sliders */
+.pa-sliders { position: absolute; left: var(--pa-margin); right: var(--pa-margin); bottom: 63px; display: flex; gap: 20px; }
+.slider { position: relative; flex: 1; height: 52px; }
+.slider-head { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; line-height: 16px; }
+.slider-label { color: var(--w-72); }
+.slider-value { font-variant-numeric: tabular-nums; }
+.slider-hit { position: absolute; left: 0; right: 0; top: 7.5px; height: var(--hit); cursor: pointer; touch-action: none; }
+.slider-bar { position: absolute; left: 0; right: 0; top: 18.5px; height: var(--slider-h); border-radius: 4px; background: var(--slider-base); overflow: hidden; transition: transform 200ms var(--spring); }
+.dragging .slider-bar { transform: scaleY(var(--slider-grow)); }
+.slider-fill { position: absolute; inset: 0; background: var(--slider-fill); transform-origin: 0 50%; }
+.slider-tick { position: absolute; top: 29.5px; width: 1.5px; height: 4px; margin-left: -0.75px; background: var(--w-45); }
+.slider-tick:first-of-type { margin-left: 0; }
+.slider-tick:last-of-type { margin-left: -1.5px; }
+.slider.disabled .slider-hit { cursor: default; opacity: 0.5; }
+.slider-note { position: absolute; left: 0; top: 36px; font-size: 11px; color: var(--w-55); white-space: nowrap; }
+
+/* Loading shimmer */
+.shimmer { animation: shimmer 1.1s ease-in-out infinite; pointer-events: none; }
+@keyframes shimmer { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.75; } }
+
+/* ---------- Play Along (sideways, 874 x 402) ---------- */
+.sideways .pa-label { top: 22px; left: var(--pa-margin-side); right: auto; }
+.sideways .pa-close { top: 22px; right: var(--pa-margin-side); }
+.sideways .pa-header { top: 20px; height: 40px; left: 227px; right: 227px; }
+.sideways .song-head { justify-content: center; gap: 10px; }
+.sideways .song-head .art { width: 40px; height: 40px; border-radius: 7px; }
+.sideways .song-head-text { flex: 0 1 auto; }
+.sideways .song-head-title { line-height: 21px; }
+.sideways .song-head-artist { line-height: 19px; }
+.sideways .pa-dots { top: 67px; }
+.sideways .pa-lyrics { left: var(--pa-margin-side); right: 300px; top: 108px; bottom: auto; --lines: 3; --gap: var(--lyric-gap-side); }
+.sideways .pa-sliders { left: auto; right: var(--pa-margin-side); width: 209px; bottom: 85px; flex-direction: column; gap: 5px; }
+.sideways .slider { flex: none; }
+.sideways .pa-controls { bottom: 111px; gap: 32px; }
+.sideways .pa-airplay { left: calc(var(--pa-margin-side) - 11px); bottom: 89px; }
+.sideways .airplay-menu { left: var(--pa-margin-side); bottom: 140px; }
+.sideways .pa-timeline { left: var(--pa-margin-side); right: var(--pa-margin-side); bottom: 51.5px; }
+.sideways .pa-timerow { left: var(--pa-margin-side); right: var(--pa-margin-side); bottom: 34.5px; }
+
+/* The fade lives in padding so short titles are never dimmed. */
+.fade-right { padding-right: 28px; }
+.sideways .song-head-text { margin-right: -28px; }
