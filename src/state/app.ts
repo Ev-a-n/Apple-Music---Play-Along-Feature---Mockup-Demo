@@ -244,3 +244,24 @@ export function useApp(): AppState {
 
 // Handy while developing: inspect the engine from the browser console.
 if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__playAlong = { engine, actions, state: () => state };
+
+// Lyric timing helper (development only). On Now Playing, press play and tap
+// T as each lyric line starts. After the last line the start times are copied
+// to the clipboard, ready to paste into src/songs.ts as `times: [...]`.
+if (import.meta.env.DEV) {
+  let stamps: number[] = [];
+  let stampedSong = '';
+  window.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() !== 't' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (stampedSong !== song().id) stamps = [];
+    stampedSong = song().id;
+    const total = song().lyrics.length;
+    stamps.push(Math.round(time.get() * 100) / 100);
+    if (stamps.length < total) return toast(`Line ${stamps.length} of ${total} at ${stamps[stamps.length - 1]}s`);
+    const result = `times: [${stamps.join(', ')}],`;
+    stamps = [];
+    console.info(`${song().title}: ${result}`);
+    void navigator.clipboard?.writeText(result).catch(() => {});
+    toast('Timings copied. Paste into src/songs.ts');
+  });
+}

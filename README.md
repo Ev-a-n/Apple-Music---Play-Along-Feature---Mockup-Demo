@@ -80,6 +80,19 @@ music generated in code.
 except its README is ignored by Git, and the build removes any audio from the
 published site. Do not commit or publish copyrighted recordings.
 
+## Lyrics
+
+The lyric lines in `src/songs.ts` are placeholders. To show the words sung in
+a clip:
+
+1. Replace that song's `lines` with the lines heard in the clip, in order.
+2. Run `npm run dev`, stay on Now Playing, press play, and tap **T** as each
+   line starts. After the last line the start times are copied to your
+   clipboard (and printed in the browser console).
+3. Paste them into the song as `times: [...]`, next to `lines`.
+
+The T key only exists while developing; it is not on the published site.
+
 ## Deploy to GitHub Pages
 
 Automatic (recommended): push to `main`. The workflow in

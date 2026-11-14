@@ -78,17 +78,23 @@ export function build({ form, ...rest }: Draft): Song {
 }
 
 interface PreviewDraft extends Omit<Song, 'duration' | 'lyrics' | 'sections' | 'defaultLoop' | 'feel' | 'melodyCentre' | 'audio'> {
-  /** Placeholder lines, spread evenly over the clip. */
+  /** The lyric lines heard in the clip, in order. */
   lines: string[];
+  /** When each line starts, in seconds. Without it the lines are spread evenly. */
+  times?: number[];
 }
 const PREVIEW_LENGTH = 30; // seconds; replaced by the real length once loaded
 const LINE_LENGTH = 3.6; // roughly how long one lyric line lasts
 
-function fromPreview({ lines, ...rest }: PreviewDraft): Song {
+function fromPreview({ lines, times, ...rest }: PreviewDraft): Song {
   const bar = 240 / rest.bpm;
   const lineLength = Math.max(1, Math.round(LINE_LENGTH / bar)) * bar;
   const lyrics: LyricLine[] = lines
-    .map((text, i) => ({ t: round(i * lineLength), end: round(Math.min(PREVIEW_LENGTH, (i + 1) * lineLength)), text }))
+    .map((text, i) => {
+      const t = times?.[i] ?? i * lineLength;
+      const end = times ? (times[i + 1] ?? PREVIEW_LENGTH) : (i + 1) * lineLength;
+      return { t: round(t), end: round(Math.min(PREVIEW_LENGTH, end)), text };
+    })
     .filter((line) => line.t < PREVIEW_LENGTH - 1);
   const sections: Section[] = [];
   for (let i = 0; i < lyrics.length; i += 2) {
@@ -99,9 +105,10 @@ function fromPreview({ lines, ...rest }: PreviewDraft): Song {
   return { ...rest, feel: 'strum', melodyCentre: 67, audio: { type: 'files' }, duration: PREVIEW_LENGTH, lyrics, sections, defaultLoop: { start: first.start, end: first.end } };
 }
 
-// The lyric lines below are original placeholders, not the songs' real lyrics,
-// and the tempos are rough guesses: adjust `bpm` by ear (it sets the count-in
-// and the beat the loop markers snap to).
+// The lyric lines below are placeholders. To show the words actually sung in
+// each clip, replace `lines`, then time them with the T key (see the README)
+// and paste the result in as `times`. The tempos are rough guesses: adjust
+// `bpm` by ear (it sets the count-in and the beat the loop markers snap to).
 export const songs: Song[] = [
   fromPreview({
     id: 'do-i-wanna-know',
@@ -109,9 +116,10 @@ export const songs: Song[] = [
     artist: 'Hozier',
     album: 'Hozier (Special Edition)',
     preview: { appleId: 1053881214, url: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/a5/79/09/a57909c1-ddb5-30e2-8d41-da9c96163063/mzaf_708338140192584838.plus.aac.p.m4a' },
-    palette: ['rgb(55,77,104)', 'rgb(61,73,89)', 'rgb(64,71,80)', 'rgb(59,60,59)', 'rgb(52,48,42)'],
-    blobs: ['rgb(72,104,148)', 'rgb(96,112,136)', 'rgb(120,96,72)', 'rgb(60,84,120)', 'rgb(88,70,52)'],
-    art: { shape: 'lamp', from: 'rgb(70,96,130)', to: 'rgb(74,60,46)', accent: 'rgb(255,214,150)' },
+    // Colours sampled from the album cover: warm browns over slate blue.
+    palette: ['rgb(108,80,58)', 'rgb(98,90,82)', 'rgb(84,88,94)', 'rgb(66,72,84)', 'rgb(48,48,52)'],
+    blobs: ['rgb(150,104,70)', 'rgb(109,153,198)', 'rgb(114,73,52)', 'rgb(84,100,124)', 'rgb(74,56,47)'],
+    art: { shape: 'lamp', from: 'rgb(156,111,76)', to: 'rgb(78,84,100)', accent: 'rgb(196,218,238)' },
     bpm: 67,
     lines: ['Is the night still young', 'out on the avenue?', 'Do the streetlights hum', 'a song you never knew', 'Is the last train gone', 'are you walking too?', 'Does the morning come', 'the way it used to do?'],
   }),
@@ -121,9 +129,10 @@ export const songs: Song[] = [
     artist: 'Harry Styles',
     album: 'Harry Styles',
     preview: { appleId: 1226034796, url: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/41/01/18/41011809-5d2f-4fea-b8a2-b34a65a1e827/mzaf_9324748603234100318.plus.aac.p.m4a' },
-    palette: ['rgb(128,84,96)', 'rgb(118,80,90)', 'rgb(100,74,82)', 'rgb(76,62,66)', 'rgb(54,46,48)'],
-    blobs: ['rgb(168,104,120)', 'rgb(140,92,116)', 'rgb(120,88,96)', 'rgb(150,110,104)', 'rgb(84,60,72)'],
-    art: { shape: 'waves', from: 'rgb(170,116,128)', to: 'rgb(84,58,70)', accent: 'rgb(255,226,220)' },
+    // Colours sampled from the cover: warm sand and peach over deep brown.
+    palette: ['rgb(150,116,92)', 'rgb(138,104,80)', 'rgb(116,84,64)', 'rgb(84,58,46)', 'rgb(50,36,32)'],
+    blobs: ['rgb(204,164,124)', 'rgb(185,141,104)', 'rgb(108,57,40)', 'rgb(160,122,95)', 'rgb(60,34,28)'],
+    art: { shape: 'waves', from: 'rgb(208,170,134)', to: 'rgb(100,58,42)', accent: 'rgb(252,236,214)' },
     bpm: 124,
     lines: ['Carry the morning slow', 'over the ridge again', 'Time keeps its quiet hold', 'on everything we were', 'Follow the river down', 'under the paling sky', 'Leave what the winter took', 'and keep the rest nearby'],
   }),
@@ -133,9 +142,10 @@ export const songs: Song[] = [
     artist: 'Daniel Caesar',
     album: 'Son Of Spergy',
     preview: { appleId: 1839352411, url: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/f2/af/b0/f2afb01b-42c5-7803-be2f-b7365c9a928a/mzaf_17144887126595930673.plus.aac.p.m4a' },
-    palette: ['rgb(38,78,62)', 'rgb(48,80,60)', 'rgb(74,82,54)', 'rgb(104,82,44)', 'rgb(92,64,32)'],
-    blobs: ['rgb(44,112,84)', 'rgb(88,116,64)', 'rgb(168,120,48)', 'rgb(36,92,76)', 'rgb(140,96,40)'],
-    art: { shape: 'kite', from: 'rgb(46,104,80)', to: 'rgb(150,106,44)', accent: 'rgb(255,222,150)' },
+    // Colours sampled from the cover: deep reds and maroon.
+    palette: ['rgb(114,45,46)', 'rgb(104,42,45)', 'rgb(92,38,42)', 'rgb(72,40,42)', 'rgb(46,30,32)'],
+    blobs: ['rgb(140,48,50)', 'rgb(123,19,28)', 'rgb(116,41,45)', 'rgb(84,70,68)', 'rgb(78,42,44)'],
+    art: { shape: 'kite', from: 'rgb(142,48,50)', to: 'rgb(56,26,30)', accent: 'rgb(240,204,192)' },
     bpm: 66,
     lines: ['Maybe the days run long', 'maybe they slip away', 'Nobody reads the map', 'we fold it anyway', 'Ask where the road goes', 'I could not tell you now', 'Somewhere answers wait', 'we will find them soon'],
   }),
