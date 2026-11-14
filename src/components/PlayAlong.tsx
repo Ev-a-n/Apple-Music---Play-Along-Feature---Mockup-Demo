@@ -1,14 +1,15 @@
 // The Play Along screen. One set of elements; CSS arranges them for upright
 // and sideways.
-import { useState } from 'react';
+import { useRef, useState, type PointerEvent } from 'react';
 import { copy } from '../copy';
 import { Icon } from '../icons';
+import { haptic } from '../haptic';
 import { formatTime, songs, type Song } from '../songs';
 import { actions, type AppState } from '../state/app';
 import { useTime } from '../state/time';
-import { AlbumArt } from './AlbumArt';
 import { Lyrics } from './Lyrics';
 import { Slider } from './Slider';
+import { SongHeader } from './SongHeader';
 import { Timeline } from './Timeline';
 import type { Orientation } from './Viewer';
 
@@ -26,8 +27,27 @@ export function PlayAlong({ app, song, orientation }: Props) {
   const second = useTime((s) => Math.floor(s));
   const [airplayOpen, setAirplayOpen] = useState(false);
 
+  // Double-tap (or double-click) on open space restarts the loop.
+  const [badge, setBadge] = useState(0);
+  const lastTap = useRef({ at: 0, x: 0, y: 0 });
+  const onPointerUp = (e: PointerEvent) => {
+    const last = lastTap.current;
+    if ((e.target as Element).closest('[data-nodtap]')) {
+      last.at = 0;
+      return;
+    }
+    const now = performance.now();
+    if (now - last.at < 320 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 40) {
+      last.at = 0;
+      actions.restartLoop();
+      actions.tick('doubleTap');
+      haptic();
+      setBadge((n) => n + 1);
+    } else lastTap.current = { at: now, x: e.clientX, y: e.clientY };
+  };
+
   return (
-    <section className={`screen pa ${active ? 'is-active' : ''}`} inert={!active} aria-label={t.label}>
+    <section className={`screen pa ${active ? 'is-active' : ''}`} inert={!active} aria-label={t.label} onPointerUp={onPointerUp}>
       <div className="pa-label">
         <Icon name="metronome" size={15} />
         {t.label}
@@ -36,15 +56,7 @@ export function PlayAlong({ app, song, orientation }: Props) {
         <Icon name="xmark" size={18} />
       </button>
 
-      <div className="pa-header" data-nodtap>
-        <div className="song-head">
-          <AlbumArt song={song} />
-          <div className="song-head-text">
-            <div className="song-head-title fade-right">{song.title}</div>
-            <div className="song-head-artist fade-right">{song.artist}</div>
-          </div>
-        </div>
-      </div>
+      <SongHeader songIndex={app.songIndex} />
       <div className="pa-dots" role="img" aria-label={t.songOf(app.songIndex + 1, songs.length)}>
         {songs.map((s, i) => (
           <i key={s.id} className={i === app.songIndex ? 'on' : ''} />
@@ -101,6 +113,11 @@ export function PlayAlong({ app, song, orientation }: Props) {
         <Slider label={t.speed} value={settings.speed} min={50} max={100} onChange={actions.setSpeed} snaps={[50, 75, 100]} resetTo={100} />
       </div>
       <div className="home-indicator" />
+      {badge > 0 && (
+        <div key={badge} className="glass restart-badge">
+          <Icon name="toStart" size={30} />
+        </div>
+      )}
     </section>
   );
 }
