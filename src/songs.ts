@@ -137,7 +137,7 @@ export const songs: Song[] = [
     blobs: ['rgb(44,112,84)', 'rgb(88,116,64)', 'rgb(168,120,48)', 'rgb(36,92,76)', 'rgb(140,96,40)'],
     art: { shape: 'kite', from: 'rgb(46,104,80)', to: 'rgb(150,106,44)', accent: 'rgb(255,222,150)' },
     bpm: 66,
-    lines: ['Maybe the days run long', 'maybe they slip away', 'Nobody reads the map', 'we fold it anyway', 'Ask me where this road goes', 'I could not tell you now', 'Somewhere the answer waits', 'we will find it out somehow'],
+    lines: ['Maybe the days run long', 'maybe they slip away', 'Nobody reads the map', 'we fold it anyway', 'Ask where the road goes', 'I could not tell you now', 'Somewhere answers wait', 'we will find them soon'],
   }),
 ];
 

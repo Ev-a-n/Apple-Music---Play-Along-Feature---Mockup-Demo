@@ -255,3 +255,6 @@
 /* ---------- "Start here" pulse on the More button ---------- */
 .np-more.hint::before { content: ''; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.7); opacity: 0; animation: more-pulse 2.6s ease-out 1.2s infinite; pointer-events: none; }
 @keyframes more-pulse { 0% { opacity: 0.7; transform: scale(1); } 55%, 100% { opacity: 0; transform: scale(1.9); } }
+
+/* Clip without becoming scrollable, so focus can never shift the content. */
+.lyrics-view, .pa-header { overflow: clip; }
