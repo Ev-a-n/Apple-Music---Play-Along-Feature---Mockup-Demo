@@ -6,8 +6,10 @@ play along on your instrument.
 
 **Live:** https://ev-a-n.github.io/play-along-prototype/
 
-> Student UX concept. Not affiliated with Apple. All songs, lyrics, album art
-> and icons are original and generated in code.
+> Student UX concept. Not affiliated with Apple. The three songs play Apple's
+> own 30-second preview clips, streamed from Apple and never stored in this
+> project. The lyric lines are placeholders, and the album art and icons are
+> generated in code.
 
 ## Run it
 
@@ -49,13 +51,14 @@ and open the "Network" address on the phone.
 
 ## Add your own songs
 
-The three built-in songs are generated in code, so the prototype always has
-sound. To hear real audio instead, drop files into `public/audio/<song-id>/`
-(the id is in `src/songs.ts`, e.g. `porch-light`):
+Each song plays Apple's 30-second preview, so the Vocals slider is off (a
+preview has no separate vocal track). To use the whole song, and the Vocals
+slider, on your own computer, drop your files into `public/audio/<song-id>/`
+(the id is in `src/songs.ts`, e.g. `sweet-creature`):
 
 ```
-public/audio/porch-light/vocals.mp3
-public/audio/porch-light/backing.mp3
+public/audio/sweet-creature/vocals.mp3
+public/audio/sweet-creature/backing.mp3
 ```
 
 - **`vocals` + `backing`** — both sliders work.
@@ -63,11 +66,15 @@ public/audio/porch-light/backing.mp3
   disabled with "Not available for this song".
 - `.mp3`, `.m4a` and `.wav` all work. If the two stems differ in length, the
   shorter one is the song length.
-- The song's `audio` entry must be `{ type: 'files' }` (the built-in songs
-  already are). If the files are missing, the generated version plays instead.
+- If the files are missing, the Apple preview plays instead.
+- Lyric times in `src/songs.ts` are laid out for the 30-second clip. For a
+  full-length file, write your own `lyrics` and `sections` times in seconds.
+- `bpm` in `src/songs.ts` sets the count-in tempo and the beat the loop
+  markers snap to. The current values are rough guesses: adjust them by ear.
 
-For a brand-new song, add an entry to `src/songs.ts` with your own lyric
-times (`lyrics: [{ t, end, text }]`) and `sections` in seconds.
+For a brand-new song, add an entry to `src/songs.ts`: `fromPreview()` with an
+Apple catalogue id for a preview clip, or `build()` with chords to have the
+music generated in code.
 
 **Your music never leaves your computer.** Everything in `public/audio/`
 except its README is ignored by Git, and the build removes any audio from the

@@ -93,7 +93,7 @@ async function loadSong(songIndex: number, autoplay: boolean) {
       duration = await engine.load(source);
     } catch (error) {
       if (load !== loads || source.generated) throw error;
-      // Your own files could not be played: use the built-in version instead.
+      // Your own files could not be played: use the preview or built-in version instead.
       forgetFiles(next);
       source = await resolveSource(next);
       duration = await engine.load(source);

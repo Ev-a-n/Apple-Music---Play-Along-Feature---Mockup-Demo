@@ -1,9 +1,10 @@
 // The song manifest. All song data lives here.
 //
-// The three built-in songs are described in bars (so the generated music and
-// the lyric timings can never drift apart) and turned into plain seconds by
-// `build()`. To add a song from your own audio files you can skip `build()`
-// and write a `Song` object by hand with times in seconds (see the README).
+// The three songs play Apple's own 30-second preview clips (streamed from
+// Apple, never stored in this project). `fromPreview()` lays placeholder lyric
+// lines out evenly over the clip. `build()` is still here for songs generated
+// in code from chords, and you can also write a `Song` by hand with times in
+// seconds (see the README).
 
 export interface LyricLine {
   /** Start and end time in seconds. */
@@ -38,8 +39,10 @@ export interface Song {
   lyrics: LyricLine[];
   sections: Section[];
   defaultLoop: { start: number; end: number };
-  /** 'files' looks in public/audio/<id>/ and falls back to 'generated'. */
+  /** 'files' looks in public/audio/<id>/ first, then uses `preview`, then generated audio. */
   audio: { type: 'generated' | 'files' };
+  /** Apple's 30-second preview: the catalogue id (looked up when the song loads) and a fallback address. */
+  preview?: { appleId: number; url: string };
 }
 
 interface Part {
@@ -55,7 +58,7 @@ interface Draft extends Omit<Song, 'duration' | 'lyrics' | 'sections' | 'default
 const TAIL = 2.5; // seconds for the last chord to ring out
 const round = (n: number) => Math.round(n * 1000) / 1000;
 
-function build({ form, ...rest }: Draft): Song {
+export function build({ form, ...rest }: Draft): Song {
   const bar = 240 / rest.bpm; // 4 beats
   const lyrics: LyricLine[] = [];
   const sections: Section[] = [];
@@ -74,79 +77,67 @@ function build({ form, ...rest }: Draft): Song {
   return { ...rest, duration, lyrics, sections, defaultLoop: { start: chorus.start, end: chorus.end } };
 }
 
-const porchChorus = ['Leave the porch light on', "I'm coming home tonight", 'Leave the porch light on', 'till the morning light'];
-const tideChorus = ['Carry me, slow tide', 'out beyond the bay', 'Carry me, slow tide', 'wash the day away'];
-const kiteChorus = ['Paper kites are flying', 'colors in the blue', 'Paper kites are flying', 'I let go with you'];
+interface PreviewDraft extends Omit<Song, 'duration' | 'lyrics' | 'sections' | 'defaultLoop' | 'feel' | 'melodyCentre' | 'audio'> {
+  /** Placeholder lines, spread evenly over the clip. */
+  lines: string[];
+}
+const PREVIEW_LENGTH = 30; // seconds; replaced by the real length once loaded
+const LINE_LENGTH = 3.6; // roughly how long one lyric line lasts
 
+function fromPreview({ lines, ...rest }: PreviewDraft): Song {
+  const bar = 240 / rest.bpm;
+  const lineLength = Math.max(1, Math.round(LINE_LENGTH / bar)) * bar;
+  const lyrics: LyricLine[] = lines
+    .map((text, i) => ({ t: round(i * lineLength), end: round(Math.min(PREVIEW_LENGTH, (i + 1) * lineLength)), text }))
+    .filter((line) => line.t < PREVIEW_LENGTH - 1);
+  const sections: Section[] = [];
+  for (let i = 0; i < lyrics.length; i += 2) {
+    sections.push({ name: `Part ${i / 2 + 1}`, start: lyrics[i].t, end: (lyrics[i + 1] ?? lyrics[i]).end });
+  }
+  sections[sections.length - 1].end = PREVIEW_LENGTH;
+  const first = sections[1] ?? sections[0];
+  return { ...rest, feel: 'strum', melodyCentre: 67, audio: { type: 'files' }, duration: PREVIEW_LENGTH, lyrics, sections, defaultLoop: { start: first.start, end: first.end } };
+}
+
+// The lyric lines below are original placeholders, not the songs' real lyrics,
+// and the tempos are rough guesses: adjust `bpm` by ear (it sets the count-in
+// and the beat the loop markers snap to).
 export const songs: Song[] = [
-  build({
-    id: 'porch-light',
-    title: 'Porch Light',
-    artist: 'Maple & Wire',
-    album: 'Screen Door Summer',
+  fromPreview({
+    id: 'do-i-wanna-know',
+    title: 'Do I Wanna Know? (Live At the BBC)',
+    artist: 'Hozier',
+    album: 'Hozier (Special Edition)',
+    preview: { appleId: 1053881214, url: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/a5/79/09/a57909c1-ddb5-30e2-8d41-da9c96163063/mzaf_708338140192584838.plus.aac.p.m4a' },
     palette: ['rgb(55,77,104)', 'rgb(61,73,89)', 'rgb(64,71,80)', 'rgb(59,60,59)', 'rgb(52,48,42)'],
     blobs: ['rgb(72,104,148)', 'rgb(96,112,136)', 'rgb(120,96,72)', 'rgb(60,84,120)', 'rgb(88,70,52)'],
     art: { shape: 'lamp', from: 'rgb(70,96,130)', to: 'rgb(74,60,46)', accent: 'rgb(255,214,150)' },
-    bpm: 96,
-    feel: 'strum',
-    melodyCentre: 67,
-    audio: { type: 'files' },
-    form: [
-      { name: 'Intro', chords: ['G', 'C'] },
-      { name: 'Verse', chords: ['G', 'Em', 'C', 'D'], lines: ['Gravel road at evening', 'dust behind the wheels', 'Radio is humming low', 'something that I feel'] },
-      { name: 'Chorus', chords: ['C', 'G', 'Em', 'D'], lines: porchChorus },
-      { name: 'Verse', chords: ['G', 'Em', 'C', 'D'], lines: ['Fireflies in the field', 'your shadow on the door', 'Every mile behind me', "I don't count anymore"] },
-      { name: 'Chorus', chords: ['C', 'G', 'Em', 'D'], lines: porchChorus },
-      { name: 'Bridge', chords: ['Em', 'C', 'G', 'D'], lines: ['', '', "And if I'm running late", "you'll know I'm on my way"] },
-      { name: 'Chorus', chords: ['C', 'G', 'Em', 'D'], lines: porchChorus },
-      { name: 'Outro', chords: ['C', 'G'] },
-    ],
+    bpm: 67,
+    lines: ['Is the night still young', 'out on the avenue?', 'Do the streetlights hum', 'a song you never knew', 'Is the last train gone', 'are you walking too?', 'Does the morning come', 'the way it used to do?'],
   }),
-  build({
-    id: 'slow-tide',
-    title: 'Slow Tide',
-    artist: 'The Lanterns',
-    album: 'Low Water',
+  fromPreview({
+    id: 'sweet-creature',
+    title: 'Sweet Creature',
+    artist: 'Harry Styles',
+    album: 'Harry Styles',
+    preview: { appleId: 1226034796, url: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/41/01/18/41011809-5d2f-4fea-b8a2-b34a65a1e827/mzaf_9324748603234100318.plus.aac.p.m4a' },
     palette: ['rgb(128,84,96)', 'rgb(118,80,90)', 'rgb(100,74,82)', 'rgb(76,62,66)', 'rgb(54,46,48)'],
     blobs: ['rgb(168,104,120)', 'rgb(140,92,116)', 'rgb(120,88,96)', 'rgb(150,110,104)', 'rgb(84,60,72)'],
     art: { shape: 'waves', from: 'rgb(170,116,128)', to: 'rgb(84,58,70)', accent: 'rgb(255,226,220)' },
-    bpm: 80,
-    feel: 'fingerpick',
-    melodyCentre: 66,
-    audio: { type: 'files' },
-    form: [
-      { name: 'Intro', chords: ['D', 'Bm'] },
-      { name: 'Verse', chords: ['D', 'Bm', 'G', 'A'], lines: ['Morning on the harbor', 'boats all in a row', 'You were counting gulls', 'I was moving slow'] },
-      { name: 'Chorus', chords: ['G', 'D', 'Em', 'A'], lines: tideChorus },
-      { name: 'Verse', chords: ['D', 'Bm', 'G', 'A'], lines: ['Salt along the railing', 'footprints in the sand', 'Nothing here to hurry', 'nothing here is planned'] },
-      { name: 'Chorus', chords: ['G', 'D', 'Em', 'A'], lines: tideChorus },
-      { name: 'Bridge', chords: ['Bm', 'G', 'D', 'A'], lines: ['', '', 'Let the water wait', 'we have all the time'] },
-      { name: 'Chorus', chords: ['G', 'D', 'Em', 'A'], lines: tideChorus },
-      { name: 'Outro', chords: ['G', 'D'] },
-    ],
+    bpm: 124,
+    lines: ['Carry the morning slow', 'over the ridge again', 'Time keeps its quiet hold', 'on everything we were', 'Follow the river down', 'under the paling sky', 'Leave what the winter took', 'and keep the rest nearby'],
   }),
-  build({
-    id: 'paper-kites',
-    title: 'Paper Kites',
-    artist: 'Juniper Hale',
-    album: 'Hilltop Weather',
+  fromPreview({
+    id: 'who-knows',
+    title: 'Who Knows',
+    artist: 'Daniel Caesar',
+    album: 'Son Of Spergy',
+    preview: { appleId: 1839352411, url: 'https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/f2/af/b0/f2afb01b-42c5-7803-be2f-b7365c9a928a/mzaf_17144887126595930673.plus.aac.p.m4a' },
     palette: ['rgb(38,78,62)', 'rgb(48,80,60)', 'rgb(74,82,54)', 'rgb(104,82,44)', 'rgb(92,64,32)'],
     blobs: ['rgb(44,112,84)', 'rgb(88,116,64)', 'rgb(168,120,48)', 'rgb(36,92,76)', 'rgb(140,96,40)'],
     art: { shape: 'kite', from: 'rgb(46,104,80)', to: 'rgb(150,106,44)', accent: 'rgb(255,222,150)' },
-    bpm: 108,
-    feel: 'shuffle',
-    melodyCentre: 69,
-    audio: { type: 'files' },
-    form: [
-      { name: 'Intro', chords: ['A', 'D'] },
-      { name: 'Verse', chords: ['A', 'F#m', 'D', 'E'], lines: ['Racing up the hillside', 'string wound in my hand', 'Wind is getting louder', 'higher than we planned'] },
-      { name: 'Chorus', chords: ['D', 'A', 'E', 'A'], lines: kiteChorus },
-      { name: 'Verse', chords: ['A', 'F#m', 'D', 'E'], lines: ['Clouds are rolling over', 'grass up to our knees', 'Laughing at the thunder', 'leaning on the breeze'] },
-      { name: 'Chorus', chords: ['D', 'A', 'E', 'A'], lines: kiteChorus },
-      { name: 'Bridge', chords: ['F#m', 'D', 'A', 'E'], lines: ['', '', 'Hold on to the line', 'watch it climb and climb'] },
-      { name: 'Chorus', chords: ['D', 'A', 'E', 'A'], lines: kiteChorus },
-      { name: 'Outro', chords: ['D', 'A'] },
-    ],
+    bpm: 66,
+    lines: ['Maybe the days run long', 'maybe they slip away', 'Nobody reads the map', 'we fold it anyway', 'Ask me where this road goes', 'I could not tell you now', 'Somewhere the answer waits', 'we will find it out somehow'],
   }),
 ];
 

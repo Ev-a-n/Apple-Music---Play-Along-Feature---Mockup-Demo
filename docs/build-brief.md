@@ -253,3 +253,6 @@ These are the places where the build deliberately differs from, or adds to, the 
 6. **Now Playing's back and forward buttons change song** (the brief only asked for play/pause there).
 7. **Guide ticks are per visit**; the per-song settings and the "tips seen" flag are what is saved in `localStorage`.
 8. **Marker snapping** uses a 3px radius around lyric lines, otherwise the nearest beat.
+9. **Real songs via Apple previews.** After review, the three songs became "Do I Wanna Know? (Live At the BBC)", "Sweet Creature" and "Who Knows", playing Apple's 30-second preview clips streamed from Apple. No recordings are stored in the project. The Vocals slider is disabled for previews (no stems); lyric lines are original placeholders; tempos are rough guesses.
+10. **Viewer changes.** The phone now scales up to fill the window (the 1x cap is gone), the caption and controls are quieter, the footer is removed and "Try this" is a compact checklist.
+11. **Additions.** A count-in (one bar of clicks before the loop) and a pulse on the More button until the menu is first opened.

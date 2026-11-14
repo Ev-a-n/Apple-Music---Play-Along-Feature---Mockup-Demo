@@ -198,6 +198,7 @@ export class Engine {
   private element() {
     const el = new Audio() as PitchElement;
     el.preload = 'auto';
+    el.crossOrigin = 'anonymous';
     el.setAttribute('playsinline', '');
     return el;
   }
