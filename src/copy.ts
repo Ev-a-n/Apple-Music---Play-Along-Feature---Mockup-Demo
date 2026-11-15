@@ -5,6 +5,7 @@ export const copy = {
     sub: 'concept prototype · tap to explore',
     rotate: 'Rotate · R',
     fullScreen: 'Full screen · F',
+    exitFullScreen: 'Exit full screen · Esc',
     restart: 'Restart',
   },
   guide: {
@@ -25,7 +26,8 @@ export const copy = {
       doubleTap: 'Double-tap empty space to restart the loop',
       swipe: 'Swipe the song title to change songs',
     },
-    count: (done: number, total: number) => `${done}/${total}`,
+    count: (done: number, total: number) => `${done} of ${total}`,
+    allDone: 'All done',
     // The last tip makes no sense on a real phone, so the sheet swaps it.
     rotatePhone: 'Turn your phone sideways',
     sheetButton: 'Got it',
@@ -38,6 +40,7 @@ export const copy = {
     previous: 'Previous song',
     next: 'Next song',
     lyrics: 'Lyrics',
+    lyricsList: 'Lyrics. Tap a line to play from there.',
     airplay: 'AirPlay',
     queue: 'Queue',
     volume: 'Volume',

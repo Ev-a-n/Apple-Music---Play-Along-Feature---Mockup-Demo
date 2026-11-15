@@ -13,6 +13,11 @@ import { SongHeader } from './SongHeader';
 import { Timeline } from './Timeline';
 import type { Orientation } from './Viewer';
 
+const TAP_MS = 350; // a press held longer than this is not a tap
+const TAP_MOVE = 12; // px a press may move and still be a tap
+const DOUBLE_TAP_MS = 320; // two taps this close together restart the loop
+const DOUBLE_TAP_MOVE = 40; // px between the two taps
+
 interface Props {
   app: AppState;
   song: Song;
@@ -27,17 +32,26 @@ export function PlayAlong({ app, song, orientation }: Props) {
   const second = useTime((s) => Math.floor(s));
   const [airplayOpen, setAirplayOpen] = useState(false);
 
-  // Double-tap (or double-click) on open space restarts the loop.
+  // Double-tap (or double-click) on open space restarts the loop. A tap is a
+  // quick press that does not move; drags (the loop markers, a swipe) and
+  // presses on controls (buttons, sliders, anything marked data-nodtap) never
+  // count. Everything else on the screen is open space.
   const [badge, setBadge] = useState(0);
   const lastTap = useRef({ at: 0, x: 0, y: 0 });
+  const pressed = useRef({ at: 0, x: 0, y: 0 });
+  const onPointerDown = (e: PointerEvent) => {
+    pressed.current = { at: performance.now(), x: e.clientX, y: e.clientY };
+  };
   const onPointerUp = (e: PointerEvent) => {
     const last = lastTap.current;
-    if ((e.target as Element).closest('[data-nodtap]')) {
+    const press = pressed.current;
+    const now = performance.now();
+    const tapped = now - press.at < TAP_MS && Math.hypot(e.clientX - press.x, e.clientY - press.y) < TAP_MOVE;
+    if (!tapped || (e.target as Element).closest('button, [role="slider"], [data-nodtap]')) {
       last.at = 0;
       return;
     }
-    const now = performance.now();
-    if (now - last.at < 320 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 40) {
+    if (now - last.at < DOUBLE_TAP_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < DOUBLE_TAP_MOVE) {
       last.at = 0;
       actions.restartLoop();
       actions.tick('doubleTap');
@@ -48,7 +62,7 @@ export function PlayAlong({ app, song, orientation }: Props) {
   };
 
   return (
-    <section className={`screen pa ${active ? 'is-active' : ''}`} inert={!active} aria-label={t.label} onPointerUp={onPointerUp}>
+    <section className={`screen pa ${active ? 'is-active' : ''}`} inert={!active} aria-label={t.label} onPointerDown={onPointerDown} onPointerUp={onPointerUp}>
       <div className="pa-label">
         <Icon name="metronome" size={15} />
         {t.label}
@@ -64,9 +78,9 @@ export function PlayAlong({ app, song, orientation }: Props) {
         ))}
       </div>
 
-      <Lyrics song={song} duration={duration} loop={loop} visibleLines={orientation === 'upright' ? 5 : 3} loading={app.loading} onTapLine={actions.tapLyric} />
+      <Lyrics song={song} duration={duration} loop={loop} scrub={app.scrub} visibleLines={orientation === 'upright' ? 5 : 3} loading={app.loading} onTapLine={actions.tapLyric} />
 
-      <Timeline song={song} duration={duration} loop={loop} loading={app.loading} onChange={actions.setLoop} onDragged={() => actions.tick('markers')} />
+      <Timeline song={song} duration={duration} loop={loop} loading={app.loading} onChange={actions.setLoop} onScrub={actions.setScrub} onDragged={actions.loopDragged} onTap={actions.jumpTo} />
       <div className="pa-timerow">
         <span>{formatTime(second)}</span>
         <button className="glass loop-pill" data-nodtap aria-pressed={loop.on} aria-label={loop.on ? t.loopToggleOn : t.loopToggleOff} onClick={actions.toggleLoop}>

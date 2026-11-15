@@ -1,10 +1,12 @@
 // The song manifest. All song data lives here.
 //
 // The three songs play Apple's own 30-second preview clips (streamed from
-// Apple, never stored in this project). `fromPreview()` lays placeholder lyric
-// lines out evenly over the clip. `build()` is still here for songs generated
-// in code from chords, and you can also write a `Song` by hand with times in
-// seconds (see the README).
+// Apple, never stored in this project). Each song is shown at its full length,
+// as in Apple Music, and the clip stands in for the whole song: the music
+// starts over every 30 seconds and the clip's lyric lines repeat with it, so
+// the words always fit what is heard. `fromClip()` builds such a song from the
+// clip's lines (times in clip seconds). `build()` is still here for songs
+// generated in code from chords.
 
 export interface LyricLine {
   /** Start and end time in seconds. */
@@ -25,7 +27,7 @@ export interface Song {
   title: string;
   artist: string;
   album: string;
-  /** Seconds. Replaced by the real length once audio has loaded. */
+  /** Full length of the song in seconds (from Apple's catalogue). */
   duration: number;
   /** Five background gradient stops, top to bottom. */
   palette: [string, string, string, string, string];
@@ -77,40 +79,48 @@ export function build({ form, ...rest }: Draft): Song {
   return { ...rest, duration, lyrics, sections, defaultLoop: { start: chorus.start, end: chorus.end } };
 }
 
-interface PreviewDraft extends Omit<Song, 'duration' | 'lyrics' | 'sections' | 'defaultLoop' | 'feel' | 'melodyCentre' | 'audio'> {
-  /** The lyric lines heard in the clip, in order. */
-  lines: string[];
-  /** When each line starts, in seconds. Without it the lines are spread evenly. */
-  times?: number[];
-}
-const PREVIEW_LENGTH = 30; // seconds; replaced by the real length once loaded
-const LINE_LENGTH = 3.6; // roughly how long one lyric line lasts
+/** Length of Apple's preview clips, in seconds (the real length is read from the audio). */
+export const CLIP_LENGTH = 30;
+const MAX_LINE = 8; // seconds a lyric line stays current when the next one is far off
+const DEFAULT_LOOP_LINES = 4; // the starting loop covers this many of the clip's lines
 
-function fromPreview({ lines, times, ...rest }: PreviewDraft): Song {
-  const bar = 240 / rest.bpm;
-  const lineLength = Math.max(1, Math.round(LINE_LENGTH / bar)) * bar;
-  const lyrics: LyricLine[] = lines
-    .map((text, i) => {
-      const t = times?.[i] ?? i * lineLength;
-      const end = times ? (times[i + 1] ?? PREVIEW_LENGTH) : (i + 1) * lineLength;
-      return { t: round(t), end: round(Math.min(PREVIEW_LENGTH, end)), text };
-    })
-    .filter((line) => line.t < PREVIEW_LENGTH - 1);
+/** A lyric line: when it starts (seconds into the clip) and its words. */
+type Lyric = [t: number, text: string];
+interface ClipDraft extends Omit<Song, 'lyrics' | 'sections' | 'defaultLoop' | 'feel' | 'melodyCentre' | 'audio'> {
+  /** The lines sung in the clip, in order, with their start times in clip seconds (0–30). */
+  lines: Lyric[];
+}
+
+/**
+ * A song whose audio is the 30-second clip, started over for as long as the
+ * song lasts. The clip's lines repeat with it, so the words always fit the
+ * music; each pass of the clip is a section. The starting loop is the clip's
+ * first few lines.
+ */
+function fromClip({ lines, ...rest }: ClipDraft): Song {
+  const passes = Math.ceil(rest.duration / CLIP_LENGTH);
+  const lyrics: LyricLine[] = [];
   const sections: Section[] = [];
-  for (let i = 0; i < lyrics.length; i += 2) {
-    sections.push({ name: `Part ${i / 2 + 1}`, start: lyrics[i].t, end: (lyrics[i + 1] ?? lyrics[i]).end });
+  for (let pass = 0; pass < passes; pass++) {
+    const at = pass * CLIP_LENGTH;
+    lines.forEach(([t, text], i) => {
+      const start = at + t;
+      const next = i + 1 < lines.length ? at + lines[i + 1][0] : at + CLIP_LENGTH;
+      if (start < rest.duration - 1) lyrics.push({ t: round(start), end: round(Math.min(next, start + MAX_LINE, rest.duration)), text });
+    });
+    sections.push({ name: `Part ${pass + 1}`, start: at, end: round(Math.min(at + CLIP_LENGTH, rest.duration)) });
   }
-  sections[sections.length - 1].end = PREVIEW_LENGTH;
-  const first = sections[1] ?? sections[0];
-  return { ...rest, feel: 'strum', melodyCentre: 67, audio: { type: 'files' }, duration: PREVIEW_LENGTH, lyrics, sections, defaultLoop: { start: first.start, end: first.end } };
+  const first = lines[0]?.[0] ?? 0;
+  const end = lines[DEFAULT_LOOP_LINES]?.[0] ?? CLIP_LENGTH;
+  return { ...rest, feel: 'strum', melodyCentre: 67, audio: { type: 'files' }, lyrics, sections, defaultLoop: { start: round(first), end: round(Math.min(end, rest.duration)) } };
 }
 
-// The lyric lines below are placeholders. To show the words actually sung in
-// each clip, replace `lines`, then time them with the T key (see the README)
-// and paste the result in as `times`. The tempos are rough guesses: adjust
-// `bpm` by ear (it sets the count-in and the beat the loop markers snap to).
+// Each song's `lines` are the words sung in its clip, with start times in clip
+// seconds. To re-time them, press play and tap T on each line (see the
+// README). The tempos are rough guesses (`bpm` sets the count-in and the beat
+// the loop markers snap to).
 export const songs: Song[] = [
-  fromPreview({
+  fromClip({
     id: 'do-i-wanna-know',
     title: 'Do I Wanna Know? (Live At the BBC)',
     artist: 'Hozier',
@@ -121,9 +131,19 @@ export const songs: Song[] = [
     blobs: ['rgb(150,104,70)', 'rgb(109,153,198)', 'rgb(114,73,52)', 'rgb(84,100,124)', 'rgb(74,56,47)'],
     art: { shape: 'lamp', from: 'rgb(156,111,76)', to: 'rgb(78,84,100)', accent: 'rgb(196,218,238)' },
     bpm: 67,
-    lines: ['Is the night still young', 'out on the avenue?', 'Do the streetlights hum', 'a song you never knew', 'Is the last train gone', 'are you walking too?', 'Does the morning come', 'the way it used to do?'],
+    duration: 257.9,
+    lines: [
+      [1, 'every night this week'],
+      [4.5, 'How many secrets can you keep?'],
+      [8, "'Cause there's this tune I found"],
+      [11.5, 'That makes me think of you somehow'],
+      [15, 'And I play it on repeat'],
+      [18.5, 'Until I fall asleep'],
+      [22, 'Spilling drinks on my settee'],
+      [25.5, 'Do I wanna know'],
+    ],
   }),
-  fromPreview({
+  fromClip({
     id: 'sweet-creature',
     title: 'Sweet Creature',
     artist: 'Harry Styles',
@@ -134,9 +154,15 @@ export const songs: Song[] = [
     blobs: ['rgb(204,164,124)', 'rgb(185,141,104)', 'rgb(108,57,40)', 'rgb(160,122,95)', 'rgb(60,34,28)'],
     art: { shape: 'waves', from: 'rgb(208,170,134)', to: 'rgb(100,58,42)', accent: 'rgb(252,236,214)' },
     bpm: 124,
-    lines: ['Carry the morning slow', 'over the ridge again', 'Time keeps its quiet hold', 'on everything we were', 'Follow the river down', 'under the paling sky', 'Leave what the winter took', 'and keep the rest nearby'],
+    duration: 224.9,
+    lines: [
+      [1, 'Sweet creature, sweet creature'],
+      [8, 'Wherever I go, you bring me home'],
+      [15, 'Sweet creature, sweet creature'],
+      [22, 'When I run out of road, you bring me home'],
+    ],
   }),
-  fromPreview({
+  fromClip({
     id: 'who-knows',
     title: 'Who Knows',
     artist: 'Daniel Caesar',
@@ -147,7 +173,13 @@ export const songs: Song[] = [
     blobs: ['rgb(140,48,50)', 'rgb(123,19,28)', 'rgb(116,41,45)', 'rgb(84,70,68)', 'rgb(78,42,44)'],
     art: { shape: 'kite', from: 'rgb(142,48,50)', to: 'rgb(56,26,30)', accent: 'rgb(240,204,192)' },
     bpm: 66,
-    lines: ['Maybe the days run long', 'maybe they slip away', 'Nobody reads the map', 'we fold it anyway', 'Ask where the road goes', 'I could not tell you now', 'Somewhere answers wait', 'we will find them soon'],
+    duration: 226.3,
+    lines: [
+      [1, 'Does it snow there?'],
+      [8, "Lately, I've been thinking 'bout my precarious future"],
+      [15, 'Will you be there with me by my side, my girl, my shooter?'],
+      [22, "Who's to say who calculates?"],
+    ],
   }),
 ];
 

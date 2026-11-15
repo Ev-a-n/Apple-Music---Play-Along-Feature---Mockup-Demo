@@ -1,14 +1,28 @@
 // The playback engine. The UI never touches audio elements directly.
 //
-//   <audio backing> ─ MediaElementSource ─ gain ─┐
-//   <audio vocals>  ─ MediaElementSource ─ gain ─┴─ master ─ speakers
+//   <audio backing> ─ MediaElementSource ─ centre cut ─┐
+//   <audio vocals>  ─ MediaElementSource ─ gain ───────┴─ master ─ speakers
 //
 // Speed changes use playbackRate with preservesPitch, so pitch stays the same.
+//
+// Time is song time. Usually the audio is the whole song, but a short clip can
+// stand in for a longer song (see `Span`): it plays in time with the song from
+// `start` and starts over wherever else the playhead is. The UI never notices.
+//
+// Vocals: with two stems the vocals stem has its own gain. With a single mix,
+// the vocals slider instead takes the centre of the stereo image (where a lead
+// vocal almost always sits) out, above the bass. At 100% the mix is untouched.
 
 export interface EngineSource {
   backing: string;
   /** null plays the backing element alone (a single full mix). */
   vocals: string | null;
+}
+export interface Span {
+  /** Full length of the song in seconds. */
+  length: number;
+  /** Song time at which the audio's first second plays in time with the song. */
+  start: number;
 }
 export interface Loop {
   start: number;
@@ -28,6 +42,7 @@ const DRIFT_CHECK = 250; // ms between drift checks
 const DIP = 0.015; // seconds of gain dip around a jump, to avoid a click
 const COUNT_BEATS = 4; // one bar of clicks before the loop starts again
 const LOOK_AHEAD = 0.032; // seconds before the loop end at which the jump starts
+const CENTRE_CUT_HZ = 160; // the centre of the mix is turned down above this (bass and kick stay)
 
 type PitchElement = HTMLAudioElement & { webkitPreservesPitch?: boolean; mozPreservesPitch?: boolean };
 
@@ -37,7 +52,16 @@ export class Engine {
   private ctx?: AudioContext;
   private master?: GainNode;
   private vocalsGain?: GainNode;
+  /** How much of the centre of a single mix is taken away: 0 none, −1 all. */
+  private centreCut?: GainNode;
   private hasVocals = false;
+  /** Seconds of audio actually loaded; `duration` is the song. */
+  private media = 0;
+  /** Where in the song the audio plays in time with it. */
+  private offset = 0;
+  /** The stretch of the song the audio is standing in for right now: song time = base + pass × media + audio time. */
+  private base = 0;
+  private pass = 0;
   private vocalsLevel = 1;
   private rate = 1;
   private loop: Loop = { start: 0, end: 0, on: false };
@@ -74,11 +98,15 @@ export class Engine {
   }
 
   get time() {
-    return this.pendingJump ?? this.backing.currentTime;
+    return this.pendingJump ?? this.base + this.pass * this.media + this.backing.currentTime;
+  }
+  /** Seconds into the loaded audio itself (the clip, when one stands in for the song). */
+  get audioTime() {
+    return this.backing.currentTime;
   }
 
-  /** Load a song. Resolves with its duration (the shorter stem). */
-  async load(source: EngineSource): Promise<number> {
+  /** Load a song. Resolves with its duration: the song's length, or the audio's (the shorter stem) without a `span`. */
+  async load(source: EngineSource, span?: Span): Promise<number> {
     const load = ++this.loads;
     this.pause();
     this.hasVocals = source.vocals !== null;
@@ -103,7 +131,11 @@ export class Engine {
     else this.unloadElement(this.vocals);
     const durations = await Promise.all(tasks);
     if (load !== this.loads) throw new Error('superseded');
-    this.duration = Math.min(...durations.filter((d) => Number.isFinite(d)));
+    this.media = Math.min(...durations.filter((d) => Number.isFinite(d)));
+    this.offset = span?.start ?? 0;
+    this.duration = span ? Math.max(span.length, this.media) : this.media;
+    this.base = 0;
+    this.pass = 0;
     this.applyRate();
     this.applyVocals();
     this.emit('time', 0);
@@ -190,6 +222,9 @@ export class Engine {
     this.unloadElement(this.backing);
     this.unloadElement(this.vocals);
     this.duration = 0;
+    this.media = 0;
+    this.base = 0;
+    this.pass = 0;
     this.emit('time', 0);
   }
 
@@ -217,12 +252,52 @@ export class Engine {
       this.master = ctx.createGain();
       this.master.connect(ctx.destination);
       this.vocalsGain = ctx.createGain();
-      this.vocalsGain.gain.value = this.vocalsLevel;
       ctx.createMediaElementSource(this.vocals).connect(this.vocalsGain).connect(this.master);
-      ctx.createMediaElementSource(this.backing).connect(ctx.createGain()).connect(this.master);
+      this.centreCutGraph(ctx, ctx.createMediaElementSource(this.backing)).connect(this.master);
       this.ctx = ctx;
+      this.applyVocals();
     }
     if (this.ctx.state !== 'running') void this.ctx.resume();
+  }
+
+  /**
+   * Split a stereo mix into its centre (L + R) and sides (L − R), and put it
+   * back together with part of the centre, above the bass, taken away:
+   *   left  = sides + centre + cut × highpass(centre)
+   *   right = −sides + centre + cut × highpass(centre)
+   * With `cut` at 0 this is exactly the original left and right.
+   */
+  private centreCutGraph(ctx: AudioContext, input: AudioNode): AudioNode {
+    const gain = (value: number) => {
+      const g = ctx.createGain();
+      g.gain.value = value;
+      return g;
+    };
+    const split = ctx.createChannelSplitter(2);
+    input.connect(split);
+    const centre = ctx.createGain();
+    split.connect(gain(0.5), 0).connect(centre);
+    split.connect(gain(0.5), 1).connect(centre);
+    const sides = ctx.createGain();
+    split.connect(gain(0.5), 0).connect(sides);
+    split.connect(gain(-0.5), 1).connect(sides);
+    const highs = ctx.createBiquadFilter();
+    highs.type = 'highpass';
+    highs.frequency.value = CENTRE_CUT_HZ;
+    this.centreCut = gain(0);
+    centre.connect(highs).connect(this.centreCut);
+    const left = ctx.createGain();
+    const right = ctx.createGain();
+    for (const node of [centre, this.centreCut]) {
+      node.connect(left);
+      node.connect(right);
+    }
+    sides.connect(left);
+    sides.connect(gain(-1)).connect(right);
+    const merge = ctx.createChannelMerger(2);
+    left.connect(merge, 0, 0);
+    right.connect(merge, 0, 1);
+    return merge;
   }
 
   private applyRate() {
@@ -235,7 +310,25 @@ export class Engine {
     }
   }
   private applyVocals() {
-    if (this.ctx && this.vocalsGain) this.vocalsGain.gain.setTargetAtTime(this.vocalsLevel, this.ctx.currentTime, 0.015);
+    const { ctx, vocalsGain, centreCut } = this;
+    if (!ctx || !vocalsGain || !centreCut) return;
+    vocalsGain.gain.setTargetAtTime(this.vocalsLevel, ctx.currentTime, 0.015);
+    centreCut.gain.setTargetAtTime(this.hasVocals ? 0 : this.vocalsLevel - 1, ctx.currentTime, 0.015);
+  }
+
+  /** Where in the audio a song time falls, and which stretch of the song the audio stands in for there. */
+  private place(t: number) {
+    if (this.media >= this.duration - 0.01) return { base: 0, pass: 0, at: t };
+    const base = t < this.offset ? 0 : this.offset;
+    const pass = Math.floor((t - base) / this.media);
+    return { base, pass, at: t - base - pass * this.media };
+  }
+
+  /** Song time at which the audio runs out and starts over (never, when it is the whole song). */
+  private get seam() {
+    if (this.media >= this.duration - 0.01) return Infinity;
+    const next = this.base + (this.pass + 1) * this.media;
+    return this.base < this.offset ? Math.min(next, this.offset) : next;
   }
 
   private startElements() {
@@ -293,8 +386,11 @@ export class Engine {
   }
 
   private setTime(time: number) {
-    this.backing.currentTime = time;
-    if (this.hasVocals) this.vocals.currentTime = time;
+    const { base, pass, at } = this.place(time);
+    this.base = base;
+    this.pass = pass;
+    this.backing.currentTime = at;
+    if (this.hasVocals) this.vocals.currentTime = at;
     this.emit('time', time);
   }
 
@@ -339,6 +435,13 @@ export class Engine {
   }
 
   private reachedEnd() {
+    if (this.playing && this.seam < this.duration - 0.05) {
+      // The audio is over but the song is not: carry on from the start of the clip.
+      this.setTime(this.seam);
+      void this.backing.play();
+      if (this.hasVocals) void this.vocals.play();
+      return;
+    }
     if (this.loop.on && this.playing) {
       // The loop runs to the very end of the song: go round again.
       this.setTime(this.loop.start);
@@ -354,7 +457,7 @@ export class Engine {
     if (!this.playing) return;
     this.frame = requestAnimationFrame(this.tick);
     if (this.jumping || this.counting) return;
-    const t = this.backing.currentTime;
+    const t = this.time;
     this.emit('time', t);
 
     if (this.loop.on && t >= this.loop.end - LOOK_AHEAD * this.rate) {
@@ -366,9 +469,15 @@ export class Engine {
       this.reachedEnd();
       return;
     }
+    // A clip standing in for the song has run out: start it over, with a dip rather than a click.
+    if (t >= this.seam - LOOK_AHEAD * this.rate) {
+      this.jump(this.seam);
+      return;
+    }
     if (this.hasVocals && now - this.lastDriftCheck > DRIFT_CHECK) {
       this.lastDriftCheck = now;
-      if (Math.abs(this.vocals.currentTime - t) > DRIFT_LIMIT) this.vocals.currentTime = t;
+      const at = this.backing.currentTime;
+      if (Math.abs(this.vocals.currentTime - at) > DRIFT_LIMIT) this.vocals.currentTime = at;
     }
   };
 }

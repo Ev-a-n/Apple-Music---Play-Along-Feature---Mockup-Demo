@@ -1,11 +1,25 @@
-// Album art drawn in code: a soft gradient with one simple shape.
+// Album art: the real cover, streamed from Apple and blurred past recognition,
+// over a version drawn in code (shown until the cover arrives, or without one).
+import { useState } from 'react';
+import { useArtwork } from '../artwork';
 import type { Song } from '../songs';
 
 export function AlbumArt({ song, className = '' }: { song: Song; className?: string }) {
+  const cover = useArtwork(song);
+  const [shown, setShown] = useState<string | null>(null);
+  return (
+    <div className={`art ${className}`} aria-hidden="true">
+      <DrawnArt song={song} />
+      {cover && <img className={`art-photo ${shown === cover ? 'shown' : ''}`} src={cover} alt="" draggable={false} onLoad={() => setShown(cover)} />}
+    </div>
+  );
+}
+
+function DrawnArt({ song }: { song: Song }) {
   const { shape, from, to, accent } = song.art;
   const id = `art-${song.id}`;
   return (
-    <svg className={`art ${className}`} viewBox="0 0 100 100" aria-hidden="true" preserveAspectRatio="xMidYMid slice">
+    <svg className="art-drawn" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0.6" y2="1">
           <stop offset="0" stopColor={from} />

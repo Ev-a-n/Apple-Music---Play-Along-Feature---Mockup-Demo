@@ -1,5 +1,7 @@
-// Album-art-derived background: gradient, drifting colour blobs, dark overlay.
-import { songs } from '../songs';
+// Album-art-derived background: the blurred cover, gradient, drifting colour
+// blobs, dark overlay.
+import { useArtwork } from '../artwork';
+import { songs, type Song } from '../songs';
 
 const SPOTS = [
   { left: '-30%', top: '-12%', size: '95%', opacity: 0.6 },
@@ -13,17 +15,25 @@ export function Background({ songIndex }: { songIndex: number }) {
   return (
     <div className="bg" aria-hidden="true">
       {songs.map((song, i) => (
-        <div key={song.id} className={`bg-layer ${i === songIndex ? 'on' : ''}`} style={{ background: `linear-gradient(${song.palette.join(', ')})` }}>
-          {SPOTS.map((spot, k) => (
-            <span
-              key={k}
-              className={`bg-blob drift-${k % 4}`}
-              style={{ left: spot.left, top: spot.top, width: spot.size, opacity: spot.opacity, background: song.blobs[k % song.blobs.length] }}
-            />
-          ))}
-        </div>
+        <Layer key={song.id} song={song} on={i === songIndex} />
       ))}
       <div className="bg-overlay" />
+    </div>
+  );
+}
+
+function Layer({ song, on }: { song: Song; on: boolean }) {
+  const cover = useArtwork(song);
+  return (
+    <div className={`bg-layer ${on ? 'on' : ''}`} style={{ background: `linear-gradient(${song.palette.join(', ')})` }}>
+      {cover && <img className="bg-photo" src={cover} alt="" draggable={false} />}
+      {SPOTS.map((spot, k) => (
+        <span
+          key={k}
+          className={`bg-blob drift-${k % 4}`}
+          style={{ left: spot.left, top: spot.top, width: spot.size, opacity: spot.opacity, background: song.blobs[k % song.blobs.length] }}
+        />
+      ))}
     </div>
   );
 }

@@ -41,13 +41,15 @@ export function App() {
       else if (key === 'arrowright' && !target.closest?.('[role="slider"]')) actions.changeSong(1);
       else if (key === 'escape') {
         if (app.menuOpen) actions.setMenu(false);
-        else actions.closePlayAlong();
+        else if (app.screen === 'playAlong') actions.closePlayAlong();
+        else if (viewer.focus) viewer.exitFocus();
+        else return;
       } else return;
       if (key === ' ' || key.startsWith('arrow')) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [rotate, viewer.toggleFullscreen, app.menuOpen]);
+  }, [rotate, viewer.toggleFullscreen, viewer.focus, viewer.exitFocus, app.menuOpen, app.screen]);
 
   return (
     <Viewer viewer={viewer} onRotate={rotate} onRestart={actions.restartPrototype} guide={<Guide done={app.guide} />}>

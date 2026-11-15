@@ -1,9 +1,9 @@
 // The one place that ties screens, songs, settings and the audio engine together.
 import { useSyncExternalStore } from 'react';
 import { Engine } from '../audio/engine';
-import { forgetFiles, releaseExcept, resolveSource } from '../audio/sources';
+import { forgetFiles, releaseExcept, resolveSource, type Source } from '../audio/sources';
 import { copy, type GuideKey } from '../copy';
-import { songs, type LyricLine, type Song } from '../songs';
+import { CLIP_LENGTH, songs, type LyricLine, type Song } from '../songs';
 import { store, type SongSettings } from './store';
 import { time } from './time';
 
@@ -26,19 +26,24 @@ export interface AppState {
   count: number;
   /** Pulse the More button until the menu has been opened once. */
   moreHint: boolean;
+  /** While a loop marker is being dragged: the time under it, which the lyrics follow. */
+  scrub: number | null;
+  /** Now Playing shows the lyrics instead of the album art. */
+  lyricsOpen: boolean;
   guide: Partial<Record<GuideKey, boolean>>;
 }
 
 const MIN_LOOP = 2; // seconds
 const LYRIC_PAIR_WINDOW = 4000; // ms in which a second lyric tap sets the loop end
 const TOAST_MS = 4000;
+const BACK_RESTARTS_AFTER = 3; // seconds into a song after which Back restarts it instead of going to the previous song
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 const defaults = (song: Song): SongSettings => ({ loopStart: song.defaultLoop.start, loopEnd: song.defaultLoop.end, loopOn: true, speed: 100, vocals: 100 });
 const settingsFor = (song: Song) => store.get(song.id) ?? defaults(song);
 const initial = (): AppState => ({
   screen: 'nowPlaying', songIndex: 0, menuOpen: false, playing: false, loading: true, vocalsAvailable: true,
-  duration: songs[0].duration, settings: settingsFor(songs[0]), airplay: 0, toast: null, tipsSeen: store.tipsSeen(), countIn: store.countIn(), count: 0, moreHint: true, guide: {},
+  duration: songs[0].duration, settings: settingsFor(songs[0]), airplay: 0, toast: null, tipsSeen: store.tipsSeen(), countIn: store.countIn(), count: 0, moreHint: true, scrub: null, lyricsOpen: false, guide: {},
 });
 
 let state = initial();
@@ -87,23 +92,28 @@ async function loadSong(songIndex: number, autoplay: boolean) {
   set({ songIndex, loading: true, duration: next.duration, settings: settingsFor(next), vocalsAvailable: true });
   time.set(loopStartOrZero());
   try {
+    // Apple's clip stands in for the whole song: it starts over every 30 seconds
+    // for as long as the song lasts (the lyric lines repeat with it).
+    const span = (s: Source) => (s.clip ? { length: next.duration, start: 0 } : undefined);
     let source = await resolveSource(next);
     let duration: number;
     try {
-      duration = await engine.load(source);
+      duration = await engine.load(source, span(source));
     } catch (error) {
       if (load !== loads || source.generated) throw error;
       // Your own files could not be played: use the preview or built-in version instead.
       forgetFiles(next);
       source = await resolveSource(next);
-      duration = await engine.load(source);
+      duration = await engine.load(source, span(source));
     }
     if (load !== loads) return;
     // Keep the saved loop inside the real length of the audio.
     const s = state.settings;
     const loopEnd = Math.min(s.loopEnd, duration);
     const loopStart = Math.max(0, Math.min(s.loopStart, loopEnd - MIN_LOOP));
-    set({ loading: false, duration, vocalsAvailable: source.vocals !== null, settings: { ...s, loopStart, loopEnd } });
+    clipBacked = source.clip;
+    // Without a separate vocal track the engine turns the centre of the mix down instead, so the slider always works.
+    set({ loading: false, duration, vocalsAvailable: true, settings: { ...s, loopStart, loopEnd } });
     applyToEngine();
     engine.seek(loopStartOrZero());
     releaseExcept([next.id]);
@@ -117,6 +127,8 @@ async function loadSong(songIndex: number, autoplay: boolean) {
 
 let started = false;
 let playedOnce = false;
+/** True while Apple's clip stands in for the song (used by the timing helper below). */
+let clipBacked = false;
 let lastLyricTap: { line: LyricLine; at: number } | null = null;
 
 export const actions = {
@@ -127,6 +139,11 @@ export const actions = {
     void loadSong(0, false);
   },
   setMenu: (menuOpen: boolean) => set(menuOpen ? { menuOpen, moreHint: false } : { menuOpen }),
+  toggleLyrics: () => set({ lyricsOpen: !state.lyricsOpen }),
+  /** Play from a point in the song (a tapped lyric line on Now Playing). */
+  seekTo(t: number) {
+    if (!state.loading) engine.seek(t);
+  },
 
   openPlayAlong() {
     set({ screen: 'playAlong', menuOpen: false });
@@ -149,6 +166,13 @@ export const actions = {
     engine.play().catch(() => toast(copy.toasts.loadFailed));
   },
 
+  /** Now Playing's back button: to the start of the song when it is under way, else the previous song. */
+  previous() {
+    if (state.loading) return;
+    if (time.get() > BACK_RESTARTS_AFTER || state.songIndex === 0) engine.seek(0);
+    else void loadSong(state.songIndex - 1, state.playing);
+  },
+
   /** Returns false at the first or last song. */
   changeSong(step: number) {
     const index = state.songIndex + step;
@@ -163,6 +187,25 @@ export const actions = {
     setSettings({ loopStart, loopEnd });
   },
   toggleLoop: () => setSettings({ loopOn: !state.settings.loopOn }),
+  setScrub: (scrub: number | null) => set({ scrub }),
+
+  /** A loop marker was let go: practise from the new start. */
+  loopDragged() {
+    actions.tick('markers');
+    if (!state.loading) engine.seek(state.settings.loopStart, true);
+  },
+
+  /** A tap on the timeline: play from there. Outside the loop, the loop moves to start there (same length). */
+  jumpTo(t: number) {
+    if (state.loading) return;
+    const { loopOn, loopStart, loopEnd } = state.settings;
+    if (loopOn && (t < loopStart - 0.05 || t >= loopEnd - 0.05)) {
+      const length = loopEnd - loopStart;
+      const start = Math.max(0, Math.min(t, state.duration - length));
+      setSettings({ loopStart: start, loopEnd: start + length });
+      engine.seek(start, true);
+    } else engine.seek(t);
+  },
   setSpeed: (speed: number) => setSettings({ speed }),
   setVocals: (vocals: number) => setSettings({ vocals }),
 
@@ -245,25 +288,30 @@ export function useApp(): AppState {
 // Handy while developing: inspect the engine from the browser console.
 if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__playAlong = { engine, actions, state: () => state };
 
-// Lyric timing helper (development only). On Now Playing, press play and tap
-// T each time the singer starts a new line. You decide how many lines there
-// are: press Enter when done and the start times are copied to the clipboard,
-// ready to paste into src/songs.ts as `times: [...]`.
+// Lyric timing helper (development only). First put the clip's lines into
+// src/songs.ts as that song's `lines`, in order (rough times are fine). Then
+// press play and tap T each time the singer starts a new line. Press Enter
+// when done: the lines come back as `[time, text]` pairs with the right times
+// in clip seconds, copied to the clipboard, ready to paste over `lines`.
 //   Backspace  undo the last tap
 //   Enter      finish and copy
-// Taps start over by themselves when you change song or the song jumps back
-// (press play again from the start to have another go).
+// Times are measured on the clip itself, so it does not matter where in the
+// song you are listening. Taps start over when you change song or the music
+// jumps back (so after a loop restart you can simply have another go).
 if (import.meta.env.DEV) {
   let stamps: number[] = [];
   let stampedSong = '';
-  let lastTime = 0;
+  let lastAudio = 0;
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  /** This moment of the music, in clip seconds (song seconds when the audio is the whole song). */
+  const stampTime = () => round2(clipBacked ? engine.audioTime : time.get());
   time.subscribe(() => {
-    const t = time.get();
-    if (stamps.length && t < lastTime - 0.5) {
+    const t = engine.audioTime;
+    if (stamps.length && t < lastAudio - 0.5) {
       stamps = [];
       toast('Taps cleared. Tap T on each new line');
     }
-    lastTime = t;
+    lastAudio = t;
   });
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -271,17 +319,22 @@ if (import.meta.env.DEV) {
     if (stampedSong !== song().id) stamps = [];
     stampedSong = song().id;
     if (key === 't') {
-      stamps.push(Math.round(time.get() * 100) / 100);
+      stamps.push(stampTime());
       toast(`Line ${stamps.length} at ${stamps[stamps.length - 1]}s · Backspace undo · Enter finish`);
     } else if (key === 'backspace' && stamps.length) {
       stamps.pop();
       toast(stamps.length ? `Undone. ${stamps.length} so far` : 'Undone. No lines yet');
     } else if (key === 'enter' && stamps.length) {
       e.preventDefault();
-      const result = `times: [${stamps.join(', ')}],`;
-      console.info(`${song().title} (${stamps.length} lines): ${result}`);
+      const { lyrics, title } = song();
+      const stretch = lyrics.filter((l) => l.t < CLIP_LENGTH);
+      const quote = (text: string) => `'${text.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+      const pairs = stamps.map((t, i) => `      [${t}, ${quote(stretch[i]?.text ?? '…')}],`);
+      const result = `    lines: [ // ${title}\n${pairs.join('\n')}\n    ],`;
+      console.info(`${title} (${stamps.length} lines):\n${result}`);
       void navigator.clipboard?.writeText(result).catch(() => {});
-      toast(`${stamps.length} times copied. Paste them into the chat`);
+      const missing = stamps.length - stretch.length;
+      toast(`${stamps.length} lines copied` + (missing > 0 ? ` · ${missing} more taps than lines in songs.ts` : missing < 0 ? ` · ${-missing} lines in songs.ts not tapped` : ''));
       stamps = [];
     }
   });

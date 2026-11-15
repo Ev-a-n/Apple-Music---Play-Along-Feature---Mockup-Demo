@@ -6,7 +6,10 @@ import { formatTime, type Song } from '../songs';
 import { actions, type AppState } from '../state/app';
 import { time, useTime } from '../state/time';
 import { AlbumArt } from './AlbumArt';
+import { Lyrics } from './Lyrics';
 import { MoreMenu } from './MoreMenu';
+
+const NO_LOOP = { start: 0, end: 0, on: false };
 
 export function NowPlaying({ app, song, duration }: { app: AppState; song: Song; duration: number }) {
   const active = app.screen === 'nowPlaying';
@@ -23,9 +26,10 @@ export function NowPlaying({ app, song, duration }: { app: AppState; song: Song;
 
   const t = copy.nowPlaying;
   return (
-    <section className={`screen np ${active ? 'is-active' : ''} ${app.loading ? 'shimmer-art' : ''}`} inert={!active} aria-label={`${song.title}, ${song.artist}`}>
+    <section className={`screen np ${active ? 'is-active' : ''} ${app.loading ? 'shimmer-art' : ''} ${app.lyricsOpen ? 'lyrics-open' : ''}`} inert={!active} aria-label={`${song.title}, ${song.artist}`}>
       <div className="np-grabber" />
       <AlbumArt song={song} className={`np-art ${app.playing ? 'playing' : ''}`} />
+      <Lyrics className="np-lyrics" label={t.lyricsList} song={song} duration={duration} loop={NO_LOOP} scrub={null} visibleLines={7} loading={app.loading || !app.lyricsOpen} onTapLine={(line) => actions.seekTo(line.t)} />
       <div className="np-title">
         <div className="fade-right np-song">{song.title}</div>
         <div className="fade-right np-artist">{song.artist}</div>
@@ -43,7 +47,7 @@ export function NowPlaying({ app, song, duration }: { app: AppState; song: Song;
         </div>
       </div>
       <div className="np-transport">
-        <button aria-label={t.previous} onClick={() => actions.changeSong(-1)}>
+        <button aria-label={t.previous} onClick={actions.previous}>
           <Icon name="backward" size={40} />
         </button>
         <button aria-label={app.playing ? t.pause : t.play} onClick={actions.togglePlay}>
@@ -61,7 +65,7 @@ export function NowPlaying({ app, song, duration }: { app: AppState; song: Song;
         <Icon name="speakerLoud" size={17} />
       </div>
       <div className="np-bottom">
-        <button aria-label={t.lyrics}>
+        <button aria-label={t.lyrics} aria-pressed={app.lyricsOpen} onClick={actions.toggleLyrics}>
           <Icon name="quote" size={22} />
         </button>
         <button aria-label={t.airplay}>

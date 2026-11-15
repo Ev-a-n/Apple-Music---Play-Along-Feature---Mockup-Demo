@@ -8,8 +8,11 @@ play along on your instrument.
 
 > Student UX concept. Not affiliated with Apple. The three songs play Apple's
 > own 30-second preview clips, streamed from Apple and never stored in this
-> project. The lyric lines are placeholders, and the album art and icons are
-> generated in code.
+> project. Each song is shown at its full length, as in Apple Music: the clip
+> starts over every 30 seconds and its lyric lines repeat with it, so the words
+> always fit the music and every control works everywhere. The album covers
+> are streamed from Apple's catalogue and shown blurred past recognition; the
+> icons are generated in code.
 
 ## Run it
 
@@ -51,24 +54,28 @@ and open the "Network" address on the phone.
 
 ## Add your own songs
 
-Each song plays Apple's 30-second preview, so the Vocals slider is off (a
-preview has no separate vocal track). To use the whole song, and the Vocals
-slider, on your own computer, drop your files into `public/audio/<song-id>/`
-(the id is in `src/songs.ts`, e.g. `sweet-creature`):
+Each song plays Apple's 30-second preview, started over every 30 seconds for
+the song's full length (a small seam each time). Without a separate vocal
+track, the Vocals slider turns down the centre of the stereo mix (where a
+lead vocal sits) above the bass: convincing for a demo, not a true stem.
+
+To use the whole song, and real stems, on your own computer, drop your files
+into `public/audio/<song-id>/` (the id is in `src/songs.ts`, e.g.
+`sweet-creature`):
 
 ```
 public/audio/sweet-creature/vocals.mp3
 public/audio/sweet-creature/backing.mp3
 ```
 
-- **`vocals` + `backing`** — both sliders work.
-- **a single `full` file** — speed and loop work; the Vocals slider is shown
-  disabled with "Not available for this song".
+- **`vocals` + `backing`** — the Vocals slider mixes the real stems.
+- **a single `full` file** — the Vocals slider uses the centre cut instead.
+  (Demucs, Moises and similar tools split a song into stems.)
 - `.mp3`, `.m4a` and `.wav` all work. If the two stems differ in length, the
   shorter one is the song length.
 - If the files are missing, the Apple preview plays instead.
-- Lyric times in `src/songs.ts` are laid out for the 30-second clip. For a
-  full-length file, write your own `lyrics` and `sections` times in seconds.
+- With your own full-length file there is no seam, but the clip's lyric
+  lines no longer fit: write that song's `lyrics` and `sections` by hand.
 - `bpm` in `src/songs.ts` sets the count-in tempo and the beat the loop
   markers snap to. The current values are rough guesses: adjust them by ear.
 
@@ -82,17 +89,21 @@ published site. Do not commit or publish copyrighted recordings.
 
 ## Lyrics
 
-The lyric lines in `src/songs.ts` are placeholders. To show the words sung in
-a clip:
+Each song in `src/songs.ts` has its full length (`duration`, from Apple's
+catalogue) and `lines`: the words sung in its 30-second clip, in order, as
+`[start, text]` pairs in clip seconds. The lines repeat with the clip for the
+whole song. To re-time them, or to set up a new song:
 
-1. Replace that song's `lines` with the lines heard in the clip, in order.
-2. Run `npm run dev`, stay on Now Playing, press play, and tap **T** each
-   time a new line starts. **Backspace** undoes a tap, **Enter** finishes and
-   copies the times to your clipboard. Jumping back in the song clears the
-   taps so you can try again.
-3. Paste them into the song as `times: [...]`, next to `lines`.
+1. Put the clip's lines into `lines`, in order. Rough times are fine.
+2. Run `npm run dev`, press play (anywhere in the song: the helper measures
+   the clip itself) and tap **T** each time the singer starts a new line.
+   **Backspace** undoes a tap. **Enter** finishes and copies `lines` back
+   with the right times.
+3. Paste it over the song's `lines`.
 
-The T key only exists while developing; it is not on the published site.
+If the music jumps back (a loop restart, say), the taps clear so you can
+have another go. The T key only exists while developing; it is not on the
+published site.
 
 ## Deploy to GitHub Pages
 
@@ -106,6 +117,11 @@ Manual alternative: `npm run deploy` builds and pushes `dist/` to a
 `npm run assets` regenerates the app icon and the social preview image.
 
 ## Known limits
+
+- The song is the 30-second clip repeated, so there is a small seam every
+  30 seconds and the same lines come round again.
+- The Vocals slider on a preview is a centre cut: it also softens anything
+  else mixed in the centre, and cannot remove a doubled or wide vocal.
 
 - Slowed audio gets slightly warbly at low speeds in every browser; the
   slider stops at 50%.
