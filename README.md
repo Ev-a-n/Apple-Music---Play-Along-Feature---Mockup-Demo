@@ -4,7 +4,7 @@ A working, in-browser prototype of **Play Along**: loop one part of a song,
 slow it down without changing the pitch, and turn the vocals down, so you can
 play along on your instrument.
 
-**Live:** https://ev-a-n.github.io/play-along-prototype/
+**Live:** https://ev-a-n.github.io/Apple-Music---Play-Along-Feature---Mockup-Demo/
 
 > Student UX concept. Not affiliated with Apple. The three songs play Apple's
 > own 30-second preview clips, streamed from Apple and never stored in this
