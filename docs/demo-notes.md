@@ -100,7 +100,7 @@ Call out the design decisions and the alternatives you rejected:
   hears the clip start over.
 - On an iPhone, Add to Home Screen gives the full-screen version. On a
   laptop, press F, then R for sideways.
-- Press Restart on the page between viewers: it clears saved loops.
+- Press Reset demo on the page between viewers: it clears saved loops.
 
 ## Things to adjust by ear
 

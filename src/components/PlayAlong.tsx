@@ -54,7 +54,6 @@ export function PlayAlong({ app, song, orientation }: Props) {
     if (now - last.at < DOUBLE_TAP_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < DOUBLE_TAP_MOVE) {
       last.at = 0;
       actions.restartLoop();
-      actions.tick('doubleTap');
       haptic();
       // With count-in on, the count itself is the feedback.
       if (!(app.countIn && app.playing && loop.on)) setBadge((n) => n + 1);

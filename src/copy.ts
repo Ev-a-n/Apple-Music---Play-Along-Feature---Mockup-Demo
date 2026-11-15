@@ -2,28 +2,29 @@
 export const copy = {
   viewer: {
     caption: 'Apple Music · Play Along',
-    sub: 'concept prototype · tap to explore',
+    sub: 'concept prototype · try it',
     rotate: 'Rotate · R',
     fullScreen: 'Full screen · F',
     exitFullScreen: 'Exit full screen · Esc',
-    restart: 'Restart',
+    restart: 'Reset demo',
   },
   guide: {
     title: 'Try this',
-    // Short labels for the checklist beside the phone.
+    // The stops of the trail beside the phone, in the order to try them.
     items: {
       menu: 'Open ••• → Play Along',
-      markers: 'Drag the loop markers',
-      lyric: 'Tap a lyric line',
-      doubleTap: 'Double-tap empty space',
-      swipe: 'Swipe the song title',
       rotate: 'Press R to rotate',
+      markers: 'Drag the loop markers',
+      play: 'Tap play',
+      countIn: 'Tap the metronome for a count-in',
+      restart: 'Tap ⏮︎ to restart the loop',
+      swipe: 'Swipe the song title',
     },
-    // Full sentences for the one-time tips sheet on a real phone.
+    // Full sentences for the one-time tips sheet on a real phone (the same steps as the trail).
     tips: {
       markers: 'Drag the two markers to choose a part to repeat',
-      lyric: 'Tap a lyric line to start the loop there',
-      doubleTap: 'Double-tap empty space to restart the loop',
+      countIn: 'Tap the metronome to hear four clicks before each loop',
+      restart: 'Tap ⏮︎ to restart the loop',
       swipe: 'Swipe the song title to change songs',
     },
     count: (done: number, total: number) => `${done} of ${total}`,
@@ -66,13 +67,13 @@ export const copy = {
     restartSong: 'Restart song',
     play: 'Play',
     pause: 'Pause',
-    nextSection: 'Next section',
+    nextSection: 'Next part',
     airplay: 'AirPlay',
     countIn: 'Count-in',
     vocals: 'Vocals',
     speed: 'Speed',
-    vocalsUnavailable: 'Not available for this song',
-    loopOff: 'Loop Off',
+    vocalsUnavailable: 'No separate vocal track for this song',
+    loopOff: 'Loop off',
     loopToggleOn: 'Turn loop off',
     loopToggleOff: 'Turn loop on',
     loopStart: 'Loop start',
@@ -85,9 +86,9 @@ export const copy = {
   airplayDevices: ['iPhone', 'AirPods Pro', 'Living Room'],
   toasts: {
     silent: 'No sound? Turn off silent mode.',
-    countInOn: 'Count-in on · one bar before each loop',
+    countInOn: 'Count-in on · 4 clicks before each loop',
     countInOff: 'Count-in off',
-    loadFailed: "Couldn't load this song",
+    loadFailed: "Couldn't load this song. Check your connection and try again.",
   },
 } as const;
 

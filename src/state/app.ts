@@ -163,6 +163,7 @@ export const actions = {
     if (state.playing) return engine.pause();
     if (isIOS && !playedOnce) toast(copy.toasts.silent);
     playedOnce = true;
+    if (state.screen === 'playAlong') actions.tick('play');
     engine.play().catch(() => toast(copy.toasts.loadFailed));
   },
 
@@ -225,12 +226,13 @@ export const actions = {
       setSettings({ loopStart: line.t, loopEnd, loopOn: true });
     }
     engine.seek(state.settings.loopStart, true);
-    actions.tick('lyric');
   },
 
   /** Back to the loop start, or to the start of the song when the loop is off. */
   restartLoop() {
-    if (!state.loading) engine.seek(loopStartOrZero(), true);
+    if (state.loading) return;
+    engine.seek(loopStartOrZero(), true);
+    actions.tick('restart');
   },
 
   /** Move the loop to the next section of the song, wrapping at the end. */
@@ -250,6 +252,7 @@ export const actions = {
     const countIn = !state.countIn;
     store.setCountIn(countIn);
     set({ countIn });
+    if (countIn) actions.tick('countIn');
     applyToEngine();
     toast(countIn ? copy.toasts.countInOn : copy.toasts.countInOff);
   },
