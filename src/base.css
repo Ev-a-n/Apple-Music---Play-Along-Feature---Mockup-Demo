@@ -93,6 +93,7 @@ svg { display: block; }
 .upright .home-indicator { width: 139px; margin-left: -69.5px; bottom: 8px; }
 .sideways .home-indicator { width: 200px; margin-left: -100px; top: 388px; }
 
+html.bare-page, html.bare-page body { background: #000; }
 /* On a real phone: no frame, fill the screen. The background bleeds to the
    edges; the screens keep their design size and sit centred, so a shorter or
    wider viewport (a browser with its bars showing) adds margin, not distortion. */

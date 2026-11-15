@@ -18,6 +18,12 @@ export function App() {
 
   useEffect(() => actions.init(), []);
 
+  // On a phone the browser tints its bars with the page's theme colour: follow the song.
+  useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (meta) meta.content = song.palette[0];
+  }, [song]);
+
   const rotate = useCallback(() => {
     viewer.rotate();
     actions.tick('rotate');

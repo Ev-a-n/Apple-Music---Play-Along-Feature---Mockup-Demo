@@ -49,6 +49,11 @@ export function useViewer() {
     };
   }, []);
 
+  // On a real phone the page behind the prototype is black, so nothing light shows around the notch or the home bar.
+  useEffect(() => {
+    document.documentElement.classList.toggle('bare-page', bare);
+  }, [bare]);
+
   // On a real phone the device decides; in the frame the viewer does.
   const orientation: Orientation = bare ? (win.w > win.h ? 'sideways' : 'upright') : chosen;
   const rotate = useCallback(() => setChosen((o) => (o === 'upright' ? 'sideways' : 'upright')), []);
