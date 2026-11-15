@@ -93,8 +93,12 @@ svg { display: block; }
 .upright .home-indicator { width: 139px; margin-left: -69.5px; bottom: 8px; }
 .sideways .home-indicator { width: 200px; margin-left: -100px; top: 388px; }
 
-/* On a real phone: no frame, fill the screen. */
+/* On a real phone: no frame, fill the screen. The background bleeds to the
+   edges; the screens keep their design size and sit centred, so a shorter or
+   wider viewport (a browser with its bars showing) adds margin, not distortion. */
 .bare { position: fixed; inset: 0; background: #000; overflow: hidden; }
+.bare .upright .screen { left: 50%; top: 50%; right: auto; bottom: auto; width: 402px; height: 874px; margin: -437px 0 0 -201px; }
+.bare .sideways .screen { left: 50%; top: 50%; right: auto; bottom: auto; width: 874px; height: 402px; margin: -201px 0 0 -437px; }
 .bare .device { border-radius: 0; box-shadow: none; }
 .bare .device::before { display: none; }
 .bare .phone { border-radius: 0; }
