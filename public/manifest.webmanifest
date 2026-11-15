@@ -1,12 +1,24 @@
 {
-  "name": "Play Along — Apple Music concept",
+  "name": "Play Along",
   "short_name": "Play Along",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#34302a",
+  "background_color": "#1c1c1e",
   "theme_color": "#374d68",
   "icons": [
-    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
-  ]
+    {
+      "src": "./icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "description": "Loop a part of a song, slow it down without changing pitch, and turn the vocals down to practise along on your instrument.",
+  "scope": "./",
+  "orientation": "any"
 }
