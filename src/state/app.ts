@@ -1,7 +1,7 @@
 // The one place that ties screens, songs, settings and the audio engine together.
 import { useSyncExternalStore } from 'react';
 import { Engine } from '../audio/engine';
-import { forgetFiles, releaseExcept, resolveSource, type Source } from '../audio/sources';
+import { forgetFiles, resolveSource, type Source } from '../audio/sources';
 import { copy, type GuideKey } from '../copy';
 import { CLIP_LENGTH, songs, type LyricLine, type Song } from '../songs';
 import { store, type SongSettings } from './store';
@@ -116,8 +116,9 @@ async function loadSong(songIndex: number, autoplay: boolean) {
     set({ loading: false, duration, vocalsAvailable: true, settings: { ...s, loopStart, loopEnd } });
     applyToEngine();
     engine.seek(loopStartOrZero());
-    releaseExcept([next.id]);
     if (autoplay) await engine.play();
+    // Warm the other songs' clips so that swiping to them is instant.
+    songs.forEach((s) => void resolveSource(s).catch(() => {}));
   } catch {
     if (load !== loads) return;
     set({ loading: false });

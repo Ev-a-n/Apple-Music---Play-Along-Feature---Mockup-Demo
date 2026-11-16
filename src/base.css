@@ -98,6 +98,8 @@ html.bare-page, html.bare-page body { background: #000; }
    edges; the screens keep their design size and sit centred, so a shorter or
    wider viewport (a browser with its bars showing) adds margin, not distortion. */
 .bare { position: fixed; top: 0; left: 0; width: 100%; height: 100%; height: 100dvh; background: #000; overflow: hidden; }
+/* Home Screen app on iOS: the reported viewport stops short of the screen by the status bar's height; 100vh is the real screen. */
+@media (display-mode: standalone) { .bare { height: 100vh; } }
 /* Phones: the drifting blobs are costly to composite and compete with time-stretched audio, so they hold still. */
 .bare .bg-blob { animation: none; filter: blur(80px); }
 .bare .phone.upright:not(.fluid) .screen { left: 50%; top: 50%; right: auto; bottom: auto; width: 402px; height: 874px; margin: -437px 0 0 -201px; }

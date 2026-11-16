@@ -18,6 +18,10 @@
     <meta property="og:description" content="Loop a part, slow it down, turn the vocals down. A working student concept prototype." />
     <meta property="og:image" content="https://ev-a-n.github.io/Apple-Music---Play-Along-Feature---Mockup-Demo/og.png" />
     <meta name="twitter:card" content="summary_large_image" />
+    <!-- Start the first song's clip and the covers' host early, in parallel with the app code. -->
+    <link rel="preconnect" href="https://audio-ssl.itunes.apple.com" crossorigin />
+    <link rel="preconnect" href="https://is1-ssl.mzstatic.com" />
+    <link rel="preload" as="fetch" crossorigin="anonymous" href="https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/a5/79/09/a57909c1-ddb5-30e2-8d41-da9c96163063/mzaf_708338140192584838.plus.aac.p.m4a" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Inter is only a fallback (Apple devices use their system font), so it must not hold up the first paint. -->

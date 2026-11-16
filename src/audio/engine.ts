@@ -1,9 +1,13 @@
-// The playback engine. The UI never touches audio elements directly.
+// The playback engine. The UI never touches audio directly.
 //
-//   <audio backing> ─ MediaElementSource ─ centre cut ─┐
-//   <audio vocals>  ─ MediaElementSource ─ gain ───────┴─ master ─ speakers
+//   backing buffer ─ source ─(stretch)─ centre cut ─┐
+//   vocals buffer  ─ source ─(stretch)─ gain ───────┴─ master ─ speakers
 //
-// Speed changes use playbackRate with preservesPitch, so pitch stays the same.
+// Songs are decoded into memory once and played from AudioBufferSourceNodes:
+// seeks and loop jumps are then instant, and no browser media pipeline is
+// involved. Slowing down keeps the pitch by running the sources through a
+// SoundTouch time-stretcher in an AudioWorklet (on the audio thread). At full
+// speed the sources are connected straight through, untouched.
 //
 // Time is song time. Usually the audio is the whole song, but a short clip can
 // stand in for a longer song (see `Span`): it plays in time with the song from
@@ -12,10 +16,12 @@
 // Vocals: with two stems the vocals stem has its own gain. With a single mix,
 // the vocals slider instead takes the centre of the stereo image (where a lead
 // vocal almost always sits) out, above the bass. At 100% the mix is untouched.
+import { SoundTouchNode } from '@soundtouchjs/audio-worklet';
+import processorUrl from '@soundtouchjs/audio-worklet/processor?url';
 
 export interface EngineSource {
   backing: string;
-  /** null plays the backing element alone (a single full mix). */
+  /** null plays the backing alone (a single full mix). */
   vocals: string | null;
 }
 export interface Span {
@@ -37,25 +43,46 @@ interface Events {
   count: number;
 }
 
-const DRIFT_LIMIT = 0.04; // seconds the stems may drift apart before correction
-const DRIFT_CHECK = 250; // ms between drift checks
 const DIP = 0.015; // seconds of gain dip around a jump, to avoid a click
 const COUNT_BEATS = 4; // one bar of clicks before the loop starts again
 const LOOK_AHEAD = 0.032; // seconds before the loop end at which the jump starts
 const CENTRE_CUT_HZ = 160; // the centre of the mix is turned down above this (bass and kick stay)
 const RATE_SETTLE = 70; // ms the speed slider must rest before the new rate is applied
+const STRETCH_LATENCY = 0.08; // seconds the stretched sound lags the source position
+const STRETCH_WAIT = 2000; // ms to wait for the stretcher to register before playing without it
 
-type PitchElement = HTMLAudioElement & { webkitPreservesPitch?: boolean; mozPreservesPitch?: boolean };
+interface Chain {
+  sources: AudioBufferSourceNode[];
+  nodes: AudioNode[];
+  startedAt: number;
+  from: number;
+  stretched: boolean;
+}
 
 export class Engine {
-  private backing = this.element();
-  private vocals = this.element();
   private ctx?: AudioContext;
   private master?: GainNode;
+  private backingIn?: GainNode;
+  private vocalsIn?: GainNode;
   private vocalsGain?: GainNode;
   /** How much of the centre of a single mix is taken away: 0 none, −1 all. */
   private centreCut?: GainNode;
+  private stretchReady?: Promise<boolean>;
+  private stretchOk = false;
+  private buffers: { backing: AudioBuffer; vocals: AudioBuffer | null } | null = null;
   private hasVocals = false;
+  private vocalsLevel = 1;
+  private rate = 1;
+  private loop: Loop = { start: 0, end: 0, on: false };
+  private frame = 0;
+  private jumping = false;
+  private pendingJump: number | null = null;
+  private rateApply = 0;
+  private loads = 0;
+  private countIn = { on: false, bpm: 120 };
+  private counting = false;
+  private countTimers: number[] = [];
+  private countClicks: OscillatorNode[] = [];
   /** Seconds of audio actually loaded; `duration` is the song. */
   private media = 0;
   /** Where in the song the audio plays in time with it. */
@@ -63,29 +90,16 @@ export class Engine {
   /** The stretch of the song the audio is standing in for right now: song time = base + pass × media + audio time. */
   private base = 0;
   private pass = 0;
-  private vocalsLevel = 1;
-  private rate = 1;
-  private loop: Loop = { start: 0, end: 0, on: false };
-  private frame = 0;
-  private lastDriftCheck = 0;
-  private jumping = false;
-  private pendingJump: number | null = null;
-  private rateSync = 0;
-  private rateApply = 0;
-  private loads = 0;
-  private countIn = { on: false, bpm: 120 };
-  private counting = false;
-  private countTimers: number[] = [];
-  private countClicks: OscillatorNode[] = [];
-  /** True once the elements have played from a tap; only then may a timer start them. */
-  private primed = false;
+  /** Position in the audio while nothing is sounding. */
+  private at = 0;
+  /** What is sounding right now. */
+  private chain: Chain | null = null;
   private listeners: { [K in keyof Events]: Set<(value: Events[K]) => void> } = { time: new Set(), playing: new Set(), ended: new Set(), count: new Set() };
 
   duration = 0;
   playing = false;
 
   constructor() {
-    this.backing.addEventListener('ended', () => this.reachedEnd());
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.playing) this.pause();
     });
@@ -99,46 +113,32 @@ export class Engine {
     this.listeners[event].forEach((fn) => fn(value));
   }
 
-  get time() {
-    return this.pendingJump ?? this.base + this.pass * this.media + this.backing.currentTime;
-  }
   /** Seconds into the loaded audio itself (the clip, when one stands in for the song). */
   get audioTime() {
-    return this.backing.currentTime;
+    const c = this.chain;
+    if (!c || !this.ctx) return this.at;
+    const lag = c.stretched ? STRETCH_LATENCY : 0;
+    return Math.max(c.from, Math.min(this.media, c.from + (this.ctx.currentTime - c.startedAt) * this.rate - lag));
+  }
+  get time() {
+    return this.pendingJump ?? this.base + this.pass * this.media + this.audioTime;
   }
 
   /** Load a song. Resolves with its duration: the song's length, or the audio's (the shorter stem) without a `span`. */
   async load(source: EngineSource, span?: Span): Promise<number> {
     const load = ++this.loads;
     this.pause();
-    this.hasVocals = source.vocals !== null;
-    const ready = (el: HTMLAudioElement, src: string) =>
-      new Promise<number>((resolve, reject) => {
-        const done = (fn: () => void) => {
-          clearTimeout(timer);
-          el.removeEventListener('loadedmetadata', ok);
-          el.removeEventListener('error', fail);
-          fn();
-        };
-        const ok = () => done(() => resolve(el.duration));
-        const fail = () => done(() => reject(new Error(`Could not load ${src}`)));
-        const timer = setTimeout(fail, 20000);
-        el.addEventListener('loadedmetadata', ok);
-        el.addEventListener('error', fail);
-        el.src = src;
-        el.load();
-      });
-    const tasks = [ready(this.backing, source.backing)];
-    if (source.vocals) tasks.push(ready(this.vocals, source.vocals));
-    else this.unloadElement(this.vocals);
-    const durations = await Promise.all(tasks);
+    const ctx = this.context();
+    const [backing, vocals] = await Promise.all([this.decode(ctx, source.backing), source.vocals ? this.decode(ctx, source.vocals) : null]);
     if (load !== this.loads) throw new Error('superseded');
-    this.media = Math.min(...durations.filter((d) => Number.isFinite(d)));
+    this.buffers = { backing, vocals };
+    this.hasVocals = vocals !== null;
+    this.media = Math.min(backing.duration, vocals?.duration ?? Infinity);
     this.offset = span?.start ?? 0;
     this.duration = span ? Math.max(span.length, this.media) : this.media;
     this.base = 0;
     this.pass = 0;
-    this.applyRate();
+    this.at = 0;
     this.applyVocals();
     this.emit('time', 0);
     return this.duration;
@@ -146,35 +146,22 @@ export class Engine {
 
   /** Must be called from a tap or key press: browsers block audio otherwise. */
   async play() {
-    if (!this.backing.src) return;
-    this.unlock();
+    if (!this.buffers || !this.ctx) return;
+    if (this.ctx.state !== 'running') void this.ctx.resume();
     if (this.time >= this.duration - 0.05) this.setTime(this.loop.on ? this.loop.start : 0);
-    if (this.hasVocals) this.vocals.currentTime = this.backing.currentTime;
-    this.applyRate();
     this.playing = true;
     this.emit('playing', true);
     cancelAnimationFrame(this.frame);
     this.frame = requestAnimationFrame(this.tick);
+    if (this.rate < 1 && !this.stretchOk) await Promise.race([this.stretchReady, new Promise((r) => setTimeout(r, STRETCH_WAIT))]);
+    if (!this.playing) return;
     // Starting from the top of the loop: count one bar in first.
-    if (this.primed && this.countIn.on && this.loop.on && Math.abs(this.time - this.loop.start) < 0.06) {
-      this.startCount();
-      return;
-    }
-    try {
-      await this.startElements();
-      this.primed = true;
-    } catch (error) {
-      // A pause() that interrupts play() is normal; anything else is a real failure.
-      if ((error as DOMException).name !== 'AbortError') {
-        this.pause();
-        throw error;
-      }
-    }
+    if (this.countIn.on && this.loop.on && Math.abs(this.time - this.loop.start) < 0.06) this.startCount();
+    else this.startChain();
   }
 
   pause() {
-    this.backing.pause();
-    this.vocals.pause();
+    this.stopChain();
     cancelAnimationFrame(this.frame);
     this.cancelCount();
     if (!this.playing) return;
@@ -196,16 +183,11 @@ export class Engine {
     if (!on) this.finishCount();
   }
 
-  /** 0.5–1. Pitch is preserved. Applied once the slider pauses for a moment: every change restarts the browser's time-stretcher. */
+  /** 0.5–1. Pitch is preserved. Applied once the slider rests for a moment. */
   setRate(rate: number) {
     this.rate = Math.max(0.5, Math.min(1, rate));
     clearTimeout(this.rateApply);
     this.rateApply = window.setTimeout(() => this.applyRate(), RATE_SETTLE);
-    // Line the stems up again once the slider settles.
-    clearTimeout(this.rateSync);
-    this.rateSync = window.setTimeout(() => {
-      if (this.hasVocals && !this.jumping) this.vocals.currentTime = this.backing.currentTime;
-    }, 140);
   }
 
   /** 0–1 gain of the vocals stem. */
@@ -222,45 +204,42 @@ export class Engine {
   unload() {
     this.loads++;
     this.pause();
-    this.unloadElement(this.backing);
-    this.unloadElement(this.vocals);
+    this.buffers = null;
     this.duration = 0;
     this.media = 0;
     this.base = 0;
     this.pass = 0;
+    this.at = 0;
     this.emit('time', 0);
   }
 
   // ---------- internals ----------
 
-  private element() {
-    const el = new Audio() as PitchElement;
-    el.preload = 'auto';
-    el.crossOrigin = 'anonymous';
-    el.setAttribute('playsinline', '');
-    return el;
-  }
-  private unloadElement(el: HTMLAudioElement) {
-    el.pause();
-    if (!el.getAttribute('src')) return;
-    el.removeAttribute('src');
-    el.load();
+  /** The AudioContext and the fixed part of the graph; made on first use (it may start suspended until a tap). */
+  private context() {
+    if (this.ctx) return this.ctx;
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new Ctx();
+    this.master = ctx.createGain();
+    this.master.connect(ctx.destination);
+    this.vocalsIn = ctx.createGain();
+    this.vocalsGain = ctx.createGain();
+    this.vocalsIn.connect(this.vocalsGain).connect(this.master);
+    this.backingIn = ctx.createGain();
+    this.centreCutGraph(ctx, this.backingIn).connect(this.master);
+    this.ctx = ctx;
+    this.stretchReady = SoundTouchNode.register(ctx, processorUrl).then(
+      () => (this.stretchOk = true),
+      () => false,
+    );
+    return ctx;
   }
 
-  /** Create (or wake) the AudioContext on the first user gesture. */
-  private unlock() {
-    if (!this.ctx) {
-      const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new Ctx();
-      this.master = ctx.createGain();
-      this.master.connect(ctx.destination);
-      this.vocalsGain = ctx.createGain();
-      ctx.createMediaElementSource(this.vocals).connect(this.vocalsGain).connect(this.master);
-      this.centreCutGraph(ctx, ctx.createMediaElementSource(this.backing)).connect(this.master);
-      this.ctx = ctx;
-      this.applyVocals();
-    }
-    if (this.ctx.state !== 'running') void this.ctx.resume();
+  private async decode(ctx: AudioContext, url: string) {
+    const reply = await fetch(url);
+    if (!reply.ok) throw new Error(`Could not load ${url}`);
+    const bytes = await reply.arrayBuffer();
+    return new Promise<AudioBuffer>((resolve, reject) => void ctx.decodeAudioData(bytes, resolve, reject));
   }
 
   /**
@@ -303,20 +282,16 @@ export class Engine {
     return merge;
   }
 
-  private applyRate() {
-    for (const el of [this.backing, this.vocals] as PitchElement[]) {
-      el.preservesPitch = true;
-      el.webkitPreservesPitch = true;
-      el.mozPreservesPitch = true;
-      el.defaultPlaybackRate = this.rate;
-      el.playbackRate = this.rate;
-    }
-  }
   private applyVocals() {
     const { ctx, vocalsGain, centreCut } = this;
     if (!ctx || !vocalsGain || !centreCut) return;
     vocalsGain.gain.setTargetAtTime(this.vocalsLevel, ctx.currentTime, 0.015);
     centreCut.gain.setTargetAtTime(this.hasVocals ? 0 : this.vocalsLevel - 1, ctx.currentTime, 0.015);
+  }
+
+  /** A new rate while playing: the chains are rebuilt at the current position (behind a gain dip). */
+  private applyRate() {
+    if (this.chain && this.playing) this.jump(this.time);
   }
 
   /** Where in the audio a song time falls, and which stretch of the song the audio stands in for there. */
@@ -334,17 +309,74 @@ export class Engine {
     return this.base < this.offset ? Math.min(next, this.offset) : next;
   }
 
-  private startElements() {
-    const started = [this.backing.play()];
-    if (this.hasVocals) started.push(this.vocals.play());
-    return Promise.all(started);
+  /** Move to a song time. Anything sounding is restarted there. */
+  private setTime(time: number) {
+    const { base, pass, at } = this.place(time);
+    const wasSounding = !!this.chain;
+    this.stopChain();
+    this.base = base;
+    this.pass = pass;
+    this.at = Math.max(0, Math.min(at, this.media));
+    if (wasSounding) this.startChain();
+    this.emit('time', time);
+  }
+
+  /** Start the sources at `at`: straight through at full speed, through the stretcher when slowed. */
+  private startChain() {
+    const { ctx, buffers, backingIn, vocalsIn } = this;
+    if (!ctx || !buffers || !backingIn || !vocalsIn || this.chain) return;
+    const stretched = this.rate < 1 && this.stretchOk;
+    const sources: AudioBufferSourceNode[] = [];
+    const nodes: AudioNode[] = [];
+    const feed = (buffer: AudioBuffer, into: AudioNode) => {
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.playbackRate.value = this.rate;
+      if (stretched) {
+        const stretch = new SoundTouchNode({ context: ctx });
+        stretch.playbackRate.value = this.rate;
+        stretch.pitch.value = 1;
+        source.connect(stretch).connect(into);
+        nodes.push(stretch);
+      } else source.connect(into);
+      sources.push(source);
+      return source;
+    };
+    const backing = feed(buffers.backing, backingIn);
+    if (buffers.vocals) feed(buffers.vocals, vocalsIn);
+    const from = Math.min(this.at, Math.max(0, this.media - 0.01));
+    const chain: Chain = { sources, nodes, startedAt: ctx.currentTime, from, stretched };
+    backing.onended = () => {
+      if (this.chain === chain) this.reachedEnd();
+    };
+    for (const source of sources) source.start(0, from);
+    this.chain = chain;
+  }
+
+  /** Silence the sources, remembering where they were. */
+  private stopChain() {
+    const c = this.chain;
+    if (!c) return;
+    this.at = this.audioTime;
+    this.chain = null;
+    for (const source of c.sources) {
+      source.onended = null;
+      try {
+        source.stop();
+      } catch {
+        /* never started */
+      }
+      source.disconnect();
+    }
+    for (const node of c.nodes) node.disconnect();
   }
 
   /** Four clicks (the first one higher), then the music starts. */
   private startCount() {
     const ctx = this.ctx;
     this.cancelCount();
-    if (!ctx) return void this.startElements();
+    if (!ctx) return this.startChain();
+    this.stopChain();
     this.counting = true;
     const beat = 60 / this.countIn.bpm / this.rate;
     const out = ctx.createGain();
@@ -370,7 +402,7 @@ export class Engine {
   private finishCount() {
     if (!this.counting) return;
     this.cancelCount();
-    if (this.playing) this.startElements().catch(() => this.pause());
+    if (this.playing) this.startChain();
   }
   private cancelCount() {
     this.countTimers.forEach(clearTimeout);
@@ -388,16 +420,7 @@ export class Engine {
     this.emit('count', 0);
   }
 
-  private setTime(time: number) {
-    const { base, pass, at } = this.place(time);
-    this.base = base;
-    this.pass = pass;
-    this.backing.currentTime = at;
-    if (this.hasVocals) this.vocals.currentTime = at;
-    this.emit('time', time);
-  }
-
-  /** Move both stems together, with a very short gain dip so there is no click. */
+  /** Move to a song time with a very short gain dip so there is no click, holding the music for a count-in if asked. */
   private jump(to: number, countIn = false) {
     this.pendingJump = to;
     this.cancelCount();
@@ -412,51 +435,45 @@ export class Engine {
     window.setTimeout(() => {
       const target = this.pendingJump ?? to;
       this.pendingJump = null;
-      const restore = () => {
-        clearTimeout(fallback);
-        this.backing.removeEventListener('seeked', restore);
-        if (ctx && master) {
-          master.gain.cancelScheduledValues(ctx.currentTime);
-          master.gain.setValueAtTime(0, ctx.currentTime);
-          master.gain.linearRampToValueAtTime(1, ctx.currentTime + DIP);
-        }
-        this.jumping = false;
-      };
-      const fallback = window.setTimeout(restore, 120);
-      this.backing.addEventListener('seeked', restore);
-      if (countIn && this.playing) {
-        // Hold the music at the new position while the bar is counted in.
-        this.backing.pause();
-        this.vocals.pause();
-        this.startCount();
-      } else if (this.playing && this.backing.paused) {
-        // A count was interrupted by this jump: get the music going again.
-        this.startElements().catch(() => this.pause());
+      this.stopChain();
+      const { base, pass, at } = this.place(target);
+      this.base = base;
+      this.pass = pass;
+      this.at = Math.max(0, Math.min(at, this.media));
+      if (this.playing) {
+        if (countIn) this.startCount();
+        else this.startChain();
       }
-      this.setTime(target);
+      this.emit('time', target);
+      if (ctx && master) {
+        master.gain.cancelScheduledValues(ctx.currentTime);
+        master.gain.setValueAtTime(0, ctx.currentTime);
+        master.gain.linearRampToValueAtTime(1, ctx.currentTime + DIP);
+      }
+      this.jumping = false;
     }, DIP * 1000);
   }
 
   private reachedEnd() {
     if (this.playing && this.seam < this.duration - 0.05) {
       // The audio is over but the song is not: carry on from the start of the clip.
+      this.stopChain();
       this.setTime(this.seam);
-      void this.backing.play();
-      if (this.hasVocals) void this.vocals.play();
+      this.startChain();
       return;
     }
     if (this.loop.on && this.playing) {
       // The loop runs to the very end of the song: go round again.
+      this.stopChain();
       this.setTime(this.loop.start);
-      void this.backing.play();
-      if (this.hasVocals) void this.vocals.play();
+      this.startChain();
       return;
     }
     this.pause();
     this.emit('ended', undefined);
   }
 
-  private tick = (now: number) => {
+  private tick = () => {
     if (!this.playing) return;
     this.frame = requestAnimationFrame(this.tick);
     if (this.jumping || this.counting) return;
@@ -467,20 +484,11 @@ export class Engine {
       this.jump(this.loop.start, this.countIn.on);
       return;
     }
-    // Stems of different lengths: stop at the shorter one.
-    if (t >= this.duration - 0.01 && !this.backing.ended) {
+    if (t >= this.duration - 0.01) {
       this.reachedEnd();
       return;
     }
     // A clip standing in for the song has run out: start it over, with a dip rather than a click.
-    if (t >= this.seam - LOOK_AHEAD * this.rate) {
-      this.jump(this.seam);
-      return;
-    }
-    if (this.hasVocals && now - this.lastDriftCheck > DRIFT_CHECK) {
-      this.lastDriftCheck = now;
-      const at = this.backing.currentTime;
-      if (Math.abs(this.vocals.currentTime - at) > DRIFT_LIMIT) this.vocals.currentTime = at;
-    }
+    if (t >= this.seam - LOOK_AHEAD * this.rate) this.jump(this.seam);
   };
 }
