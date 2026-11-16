@@ -106,6 +106,28 @@ export function Viewer({ viewer, onRotate, onRestart, guide, children }: Props) 
   const deviceRef = useRef<HTMLDivElement>(null);
   const frame = bare ? 0 : BEZEL;
 
+  // On a real phone the stage is sized from the container as actually painted, not from
+  // the window's reported height: on iOS Safari the two disagree while its bars come and go.
+  const bareRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = bareRef.current;
+    if (!bare || !el) return void setBox(null);
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setBox((was) => (was && was.w === r.width && was.h === r.height ? was : { w: r.width, h: r.height }));
+    };
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(el);
+    window.visualViewport?.addEventListener('resize', measure);
+    return () => {
+      watch.disconnect();
+      window.visualViewport?.removeEventListener('resize', measure);
+    };
+  }, [bare]);
+  const avail = bare && box ? box : win;
+
   // Framed: as large as the window allows (up to maxScale), leaving room for
   // the caption under the phone and the checklist beside (or under) it.
   // Bare: fill the screen; the stage may be a little larger than the design size.
@@ -117,10 +139,10 @@ export function Viewer({ viewer, onRotate, onRestart, guide, children }: Props) 
   const maxScale = immersive ? L.maxScaleImmersive : L.maxScale;
   // A real phone held upright fills the width at full size and the screens adapt to the height (see .fluid in screens.css);
   // sideways, or with very little height, it scales to fit instead.
-  const fluid = bare && orientation === 'upright' && win.h / (win.w / design.w) >= MIN_FLUID_H;
-  const scale = bare ? (fluid ? win.w / design.w : Math.min(win.w / design.w, win.h / design.h)) : Math.min(maxScale, roomW / (design.w + 2 * frame), roomH / (design.h + 2 * frame));
+  const fluid = bare && orientation === 'upright' && avail.h / (avail.w / design.w) >= MIN_FLUID_H;
+  const scale = bare ? (fluid ? avail.w / design.w : Math.min(avail.w / design.w, avail.h / design.h)) : Math.min(maxScale, roomW / (design.w + 2 * frame), roomH / (design.h + 2 * frame));
   const s = Math.max(0.3, scale);
-  const stage = bare ? { w: win.w / s, h: win.h / s } : design;
+  const stage = bare ? { w: avail.w / s, h: avail.h / s } : design;
   const short = fluid && stage.h < SHORT_H;
   const outer = { w: stage.w + 2 * frame, h: stage.h + 2 * frame };
 
@@ -160,7 +182,13 @@ export function Viewer({ viewer, onRotate, onRestart, guide, children }: Props) 
     </div>
   );
 
-  if (bare) return <div className="bare">{phone}</div>;
+  if (bare) {
+    return (
+      <div className="bare" ref={bareRef}>
+        {phone}
+      </div>
+    );
+  }
 
   return (
     <div className={`viewer ${immersive ? 'immersive' : ''}`}>

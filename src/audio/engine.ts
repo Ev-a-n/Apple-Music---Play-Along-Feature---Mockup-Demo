@@ -43,6 +43,7 @@ const DIP = 0.015; // seconds of gain dip around a jump, to avoid a click
 const COUNT_BEATS = 4; // one bar of clicks before the loop starts again
 const LOOK_AHEAD = 0.032; // seconds before the loop end at which the jump starts
 const CENTRE_CUT_HZ = 160; // the centre of the mix is turned down above this (bass and kick stay)
+const RATE_SETTLE = 70; // ms the speed slider must rest before the new rate is applied
 
 type PitchElement = HTMLAudioElement & { webkitPreservesPitch?: boolean; mozPreservesPitch?: boolean };
 
@@ -70,6 +71,7 @@ export class Engine {
   private jumping = false;
   private pendingJump: number | null = null;
   private rateSync = 0;
+  private rateApply = 0;
   private loads = 0;
   private countIn = { on: false, bpm: 120 };
   private counting = false;
@@ -194,10 +196,11 @@ export class Engine {
     if (!on) this.finishCount();
   }
 
-  /** 0.5–1. Pitch is preserved. */
+  /** 0.5–1. Pitch is preserved. Applied once the slider pauses for a moment: every change restarts the browser's time-stretcher. */
   setRate(rate: number) {
     this.rate = Math.max(0.5, Math.min(1, rate));
-    this.applyRate();
+    clearTimeout(this.rateApply);
+    this.rateApply = window.setTimeout(() => this.applyRate(), RATE_SETTLE);
     // Line the stems up again once the slider settles.
     clearTimeout(this.rateSync);
     this.rateSync = window.setTimeout(() => {

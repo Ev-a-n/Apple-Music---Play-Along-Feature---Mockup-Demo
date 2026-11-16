@@ -97,7 +97,9 @@ html.bare-page, html.bare-page body { background: #000; }
 /* On a real phone: no frame, fill the screen. The background bleeds to the
    edges; the screens keep their design size and sit centred, so a shorter or
    wider viewport (a browser with its bars showing) adds margin, not distortion. */
-.bare { position: fixed; inset: 0; background: #000; overflow: hidden; }
+.bare { position: fixed; top: 0; left: 0; width: 100%; height: 100%; height: 100dvh; background: #000; overflow: hidden; }
+/* Phones: the drifting blobs are costly to composite and compete with time-stretched audio, so they hold still. */
+.bare .bg-blob { animation: none; filter: blur(80px); }
 .bare .phone.upright:not(.fluid) .screen { left: 50%; top: 50%; right: auto; bottom: auto; width: 402px; height: 874px; margin: -437px 0 0 -201px; }
 .bare .phone.sideways .screen { left: 50%; top: 50%; right: auto; bottom: auto; width: 874px; height: 402px; margin: -201px 0 0 -437px; }
 .bare .device { border-radius: 0; box-shadow: none; }
