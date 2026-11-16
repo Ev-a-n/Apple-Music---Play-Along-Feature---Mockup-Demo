@@ -18,7 +18,7 @@
 .np-art { --art-blur: 22px; }
 .song-head .art { --art-blur: 6px; }
 .sideways .song-head .art { --art-blur: 4px; }
-.bg-photo { position: absolute; inset: -20%; width: 140%; height: 140%; object-fit: cover; filter: blur(70px) saturate(1.35); opacity: 0.75; }
+.bg-photo { position: absolute; inset: -20%; width: 140%; height: 140%; object-fit: cover; filter: blur(48px) saturate(1.35); opacity: 0.75; }
 
 /* Background */
 .bg, .bg-layer, .bg-overlay { position: absolute; inset: 0; }
@@ -281,3 +281,45 @@
 
 /* Clip without becoming scrollable, so focus can never shift the content. */
 .lyrics-view, .pa-header { overflow: clip; }
+
+/* ---------- Real phone, upright: fluid layout ----------
+   The screen fills the width at full size and adapts to the height: the lower
+   controls hang from the bottom, the top items hang from the top, and the album
+   art (or the lyrics) takes what is left. --top/--bot are the device's safe
+   areas (the status bar and the home bar in a Home Screen app; zero in Safari,
+   which keeps its own bars). .short tightens the spacing on a short screen. */
+.fluid { --top: env(safe-area-inset-top, 0px); --bot: env(safe-area-inset-bottom, 0px); }
+.fluid .np-grabber { top: calc(var(--top) + 9px); }
+.fluid .np-art { left: 0; right: 0; margin: 0 auto; top: calc(var(--top) + 81px); width: min(258px, calc(var(--stage-h) - var(--top) - var(--bot) - 523px)); height: auto; aspect-ratio: 1 / 1; }
+.short .np-art { top: calc(var(--top) + 60px); width: min(258px, calc(var(--stage-h) - var(--top) - var(--bot) - 406px)); }
+.fluid .np-title { top: auto; bottom: calc(299px + var(--bot)); }
+.short .np-title { bottom: calc(262px + var(--bot)); }
+.fluid .np-more { top: auto; bottom: calc(311px + var(--bot)); }
+.short .np-more { bottom: calc(274px + var(--bot)); }
+.fluid .np-progress { top: auto; bottom: calc(237px + var(--bot)); }
+.short .np-progress { bottom: calc(208px + var(--bot)); }
+.fluid .np-transport { top: auto; bottom: calc(169px + var(--bot)); }
+.short .np-transport { bottom: calc(150px + var(--bot)); }
+.fluid .np-volume { top: auto; bottom: calc(66px + var(--bot)); }
+.short .np-volume { bottom: calc(62px + var(--bot)); }
+.fluid .np-bottom { top: auto; bottom: calc(11px + var(--bot)); }
+.fluid .np-lyrics { top: calc(var(--top) + 91px); bottom: calc(284px + var(--bot)); }
+.short .np-lyrics { bottom: calc(247px + var(--bot)); --lines: 5; }
+.fluid .lyrics-open .np-art { left: 32px; right: auto; margin: 0; top: calc(var(--top) + 17px); width: 60px; height: 60px; }
+.fluid .lyrics-open .np-title { top: calc(var(--top) + 25px); bottom: auto; }
+.fluid .lyrics-open .np-more { top: calc(var(--top) + 31px); bottom: auto; }
+.fluid .pa-label, .fluid .pa-close { top: calc(var(--top) + 7px); }
+.fluid .pa-header { top: calc(var(--top) + 63px); }
+.fluid .pa-dots { top: calc(var(--top) + 133px); }
+.fluid .pa-lyrics { top: calc(var(--top) + 139px); bottom: calc(281px + var(--bot)); }
+.short .pa-lyrics { bottom: calc(246px + var(--bot)); }
+.fluid .pa-timeline { bottom: calc(256.5px + var(--bot)); }
+.short .pa-timeline { bottom: calc(221.5px + var(--bot)); }
+.fluid .pa-timerow { bottom: calc(239px + var(--bot)); }
+.short .pa-timerow { bottom: calc(204px + var(--bot)); }
+.fluid .pa-controls { bottom: calc(165px + var(--bot)); }
+.short .pa-controls { bottom: calc(140px + var(--bot)); }
+.fluid .pa-airplay, .fluid .pa-countin { bottom: calc(143px + var(--bot)); }
+.short .pa-airplay, .short .pa-countin { bottom: calc(118px + var(--bot)); }
+.fluid .pa-sliders { bottom: calc(29px + var(--bot)); }
+.short .pa-sliders { bottom: calc(24px + var(--bot)); }

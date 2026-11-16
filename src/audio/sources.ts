@@ -51,11 +51,16 @@ export function artworkUrl(song: Song): Promise<string | null> {
   if (!song.preview) return Promise.resolve(null);
   return lookup(song.preview.appleId).then((c) => c.artworkUrl100?.replace(/\d+x\d+bb/, `${ARTWORK_PX}x${ARTWORK_PX}bb`) ?? null, () => null);
 }
-const ARTWORK_PX = 600;
+const ARTWORK_PX = 300; // the covers are shown blurred, so a small image is plenty
 
-/** The clip is small (about 1 MB), so it is held in memory: loop jumps are then instant. */
+/**
+ * The clip is small (about 1 MB), so it is held in memory: loop jumps are then
+ * instant. The saved address is tried first, so playback does not wait for the
+ * catalogue lookup; only if it has gone stale is the current address looked up.
+ */
 async function fromPreview(preview: NonNullable<Song['preview']>): Promise<Source> {
-  const reply = await fetch(await previewUrl(preview));
+  let reply = await fetch(preview.url).catch(() => null);
+  if (!reply?.ok) reply = await fetch(await previewUrl(preview));
   if (!reply.ok) throw new Error(`Preview unavailable (${reply.status})`);
   const clip = new Blob([await reply.arrayBuffer()], { type: 'audio/mp4' });
   return { backing: URL.createObjectURL(clip), vocals: null, generated: true, clip: true };

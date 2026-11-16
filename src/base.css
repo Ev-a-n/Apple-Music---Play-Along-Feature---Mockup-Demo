@@ -98,8 +98,8 @@ html.bare-page, html.bare-page body { background: #000; }
    edges; the screens keep their design size and sit centred, so a shorter or
    wider viewport (a browser with its bars showing) adds margin, not distortion. */
 .bare { position: fixed; inset: 0; background: #000; overflow: hidden; }
-.bare .upright .screen { left: 50%; top: 50%; right: auto; bottom: auto; width: 402px; height: 874px; margin: -437px 0 0 -201px; }
-.bare .sideways .screen { left: 50%; top: 50%; right: auto; bottom: auto; width: 874px; height: 402px; margin: -201px 0 0 -437px; }
+.bare .phone.upright:not(.fluid) .screen { left: 50%; top: 50%; right: auto; bottom: auto; width: 402px; height: 874px; margin: -437px 0 0 -201px; }
+.bare .phone.sideways .screen { left: 50%; top: 50%; right: auto; bottom: auto; width: 874px; height: 402px; margin: -201px 0 0 -437px; }
 .bare .device { border-radius: 0; box-shadow: none; }
 .bare .device::before { display: none; }
 .bare .phone { border-radius: 0; }

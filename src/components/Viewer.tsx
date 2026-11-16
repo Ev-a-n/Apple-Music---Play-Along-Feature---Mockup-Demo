@@ -1,5 +1,5 @@
 // The page around the prototype: phone frame, rotate, full screen, caption.
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { copy } from '../copy';
 
 export type Orientation = 'upright' | 'sideways';
@@ -8,6 +8,10 @@ const SIZE = { upright: { w: 402, h: 874 }, sideways: { w: 874, h: 402 } };
 const LAYOUT = { pad: 20, guideW: 170, guideGap: 30, caption: 100, controls: 40, guideBelow: 100, maxScale: 1.4, maxScaleImmersive: 2.4, wideFrom: 1000 };
 /** The device body around the screen (rim and black bezel), in design pixels. Matches .device in base.css. */
 const BEZEL = 17;
+/** On a real phone, upright: fill the width and let the layout adapt to the height, as long as there is at least this much of it (design px). */
+const MIN_FLUID_H = 600;
+/** Below this stage height (design px) the upright layout tightens its spacing. */
+const SHORT_H = 820;
 
 /** A narrow touch screen: show the prototype without a frame. */
 const isRealPhone = () =>
@@ -111,9 +115,13 @@ export function Viewer({ viewer, onRotate, onRestart, guide, children }: Props) 
   const roomW = win.w - L.pad * 2 - (wide ? (L.guideW + L.guideGap) * 2 : 0);
   const roomH = win.h - L.pad * 2 - (immersive ? L.controls : L.caption) - (wide || immersive ? 0 : L.guideBelow);
   const maxScale = immersive ? L.maxScaleImmersive : L.maxScale;
-  const scale = bare ? Math.min(win.w / design.w, win.h / design.h) : Math.min(maxScale, roomW / (design.w + 2 * frame), roomH / (design.h + 2 * frame));
+  // A real phone held upright fills the width at full size and the screens adapt to the height (see .fluid in screens.css);
+  // sideways, or with very little height, it scales to fit instead.
+  const fluid = bare && orientation === 'upright' && win.h / (win.w / design.w) >= MIN_FLUID_H;
+  const scale = bare ? (fluid ? win.w / design.w : Math.min(win.w / design.w, win.h / design.h)) : Math.min(maxScale, roomW / (design.w + 2 * frame), roomH / (design.h + 2 * frame));
   const s = Math.max(0.3, scale);
   const stage = bare ? { w: win.w / s, h: win.h / s } : design;
+  const short = fluid && stage.h < SHORT_H;
   const outer = { w: stage.w + 2 * frame, h: stage.h + 2 * frame };
 
   // Smooth quarter-turn: the new layout starts turned back to the old shape.
@@ -143,7 +151,7 @@ export function Viewer({ viewer, onRotate, onRestart, guide, children }: Props) 
               <i className="side side-power" />
             </>
           )}
-          <div className={`phone ${orientation}`}>
+          <div className={`phone ${orientation} ${fluid ? 'fluid' : ''} ${short ? 'short' : ''}`} style={{ '--stage-h': `${stage.h}px` } as CSSProperties}>
             {children}
             <div className="island" />
           </div>
