@@ -93,11 +93,15 @@ svg { display: block; }
 .upright .home-indicator { width: 139px; margin-left: -69.5px; bottom: 8px; }
 .sideways .home-indicator { width: 200px; margin-left: -100px; top: 388px; }
 
-html.bare-page, html.bare-page body { background: #000; }
+/* Safari paints the areas around its bars with the page's colours: use the song's, not black. */
+html.bare-page, html.bare-page body { background: var(--page-bottom, #000); }
 /* On a real phone: no frame, fill the screen. The background bleeds to the
    edges; the screens keep their design size and sit centred, so a shorter or
    wider viewport (a browser with its bars showing) adds margin, not distortion. */
-.bare { position: fixed; top: 0; left: 0; width: 100%; height: 100%; height: 100dvh; background: #000; overflow: hidden; }
+.bare { position: fixed; top: 0; left: 0; width: 100%; height: 100%; height: 100dvh; background: var(--page-top, #000); overflow: hidden; }
+/* Upright, the stage reaches under Safari's bottom bar (100lvh) so the design runs to the screen's edge; the
+   controls are lifted above the bar by --bar (Viewer.tsx). Sideways, Safari's bar is at the top: stay inside. */
+@media (orientation: portrait) { .bare { height: 100lvh; } }
 /* Home Screen app on iOS: the reported viewport stops short of the screen by the status bar's height; 100vh is the real screen. */
 @media (display-mode: standalone) { .bare { height: 100vh; } }
 /* Phones: the drifting blobs are costly to composite and compete with time-stretched audio, so they hold still. */

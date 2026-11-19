@@ -22,6 +22,10 @@ export function App() {
   useEffect(() => {
     const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     if (meta) meta.content = song.palette[0];
+    // Newer iPhone Safari ignores theme-color and tints its bars from the page's own colours instead.
+    const root = document.documentElement.style;
+    root.setProperty('--page-top', song.palette[0]);
+    root.setProperty('--page-bottom', song.palette[4]);
   }, [song]);
 
   const rotate = useCallback(() => {

@@ -288,7 +288,10 @@
    art (or the lyrics) takes what is left. --top/--bot are the device's safe
    areas (the status bar and the home bar in a Home Screen app; zero in Safari,
    which keeps its own bars). .short tightens the spacing on a short screen. */
-.fluid { --top: env(safe-area-inset-top, 0px); --bot: env(safe-area-inset-bottom, 0px); }
+.fluid { --top: env(safe-area-inset-top, 0px); --bot: max(env(safe-area-inset-bottom, 0px), var(--bar, 0px)); }
+.fluid .tips { bottom: calc(12px + var(--bot)); }
+.fluid .airplay-menu { bottom: calc(194px + var(--bot)); }
+.short .airplay-menu { bottom: calc(169px + var(--bot)); }
 .fluid .np-grabber { top: calc(var(--top) + 9px); }
 .fluid .np-art { left: 0; right: 0; margin: 0 auto; top: calc(var(--top) + 81px); width: min(258px, calc(var(--stage-h) - var(--top) - var(--bot) - 523px)); height: auto; aspect-ratio: 1 / 1; }
 .short .np-art { top: calc(var(--top) + 60px); width: min(258px, calc(var(--stage-h) - var(--top) - var(--bot) - 406px)); }

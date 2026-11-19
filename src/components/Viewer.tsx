@@ -109,24 +109,28 @@ export function Viewer({ viewer, onRotate, onRestart, guide, children }: Props) 
   // On a real phone the stage is sized from the container as actually painted, not from
   // the window's reported height: on iOS Safari the two disagree while its bars come and go.
   const bareRef = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  // h: the container (which in portrait reaches under Safari's bottom bar); vis: the part not covered by it.
+  const [box, setBox] = useState<{ w: number; h: number; vis: number } | null>(null);
   useLayoutEffect(() => {
     const el = bareRef.current;
     if (!bare || !el) return void setBox(null);
     const measure = () => {
       const r = el.getBoundingClientRect();
-      setBox((was) => (was && was.w === r.width && was.h === r.height ? was : { w: r.width, h: r.height }));
+      const vis = Math.min(r.height, window.innerHeight);
+      setBox((was) => (was && was.w === r.width && was.h === r.height && was.vis === vis ? was : { w: r.width, h: r.height, vis }));
     };
     measure();
     const watch = new ResizeObserver(measure);
     watch.observe(el);
     window.visualViewport?.addEventListener('resize', measure);
+    window.addEventListener('resize', measure);
     return () => {
       watch.disconnect();
       window.visualViewport?.removeEventListener('resize', measure);
+      window.removeEventListener('resize', measure);
     };
   }, [bare]);
-  const avail = bare && box ? box : win;
+  const avail = bare && box ? box : { ...win, vis: win.h };
 
   // Framed: as large as the window allows (up to maxScale), leaving room for
   // the caption under the phone and the checklist beside (or under) it.
@@ -139,11 +143,13 @@ export function Viewer({ viewer, onRotate, onRestart, guide, children }: Props) 
   const maxScale = immersive ? L.maxScaleImmersive : L.maxScale;
   // A real phone held upright fills the width at full size and the screens adapt to the height (see .fluid in screens.css);
   // sideways, or with very little height, it scales to fit instead.
-  const fluid = bare && orientation === 'upright' && avail.h / (avail.w / design.w) >= MIN_FLUID_H;
-  const scale = bare ? (fluid ? avail.w / design.w : Math.min(avail.w / design.w, avail.h / design.h)) : Math.min(maxScale, roomW / (design.w + 2 * frame), roomH / (design.h + 2 * frame));
+  const fluid = bare && orientation === 'upright' && avail.vis / (avail.w / design.w) >= MIN_FLUID_H;
+  const scale = bare ? (fluid ? avail.w / design.w : Math.min(avail.w / design.w, avail.vis / design.h)) : Math.min(maxScale, roomW / (design.w + 2 * frame), roomH / (design.h + 2 * frame));
   const s = Math.max(0.3, scale);
   const stage = bare ? { w: avail.w / s, h: avail.h / s } : design;
-  const short = fluid && stage.h < SHORT_H;
+  // The design runs on under Safari's bottom bar; the controls stay above it (see --bar in screens.css).
+  const bar = fluid ? Math.max(0, (avail.h - avail.vis) / s) : 0;
+  const short = fluid && stage.h - bar < SHORT_H;
   const outer = { w: stage.w + 2 * frame, h: stage.h + 2 * frame };
 
   // Smooth quarter-turn: the new layout starts turned back to the old shape.
@@ -173,7 +179,7 @@ export function Viewer({ viewer, onRotate, onRestart, guide, children }: Props) 
               <i className="side side-power" />
             </>
           )}
-          <div className={`phone ${orientation} ${fluid ? 'fluid' : ''} ${short ? 'short' : ''}`} style={{ '--stage-h': `${stage.h}px` } as CSSProperties}>
+          <div className={`phone ${orientation} ${fluid ? 'fluid' : ''} ${short ? 'short' : ''}`} style={{ '--stage-h': `${stage.h}px`, '--bar': `${bar}px` } as CSSProperties}>
             {children}
             <div className="island" />
           </div>
